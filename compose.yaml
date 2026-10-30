@@ -72,6 +72,20 @@ services:
       mqtt: { condition: service_healthy }
     networks: [iot, donnees]
 
+  # ------------------------------------------------------------ règles d'arrosage (humidité + Open-Meteo)
+  regles:
+    <<: *backend
+    command: ["python", "-m", "jaden.regles"]
+    environment:
+      <<: *backend-env
+      MQTT_UTILISATEUR: regles
+      MQTT_MOT_DE_PASSE: ${MQTT_REGLES_MOT_DE_PASSE}
+      REGLES_PERIODE_S: ${REGLES_PERIODE_S:-60}
+    depends_on:
+      db: { condition: service_healthy }
+      mqtt: { condition: service_healthy }
+    networks: [iot, donnees]       # + accès sortant à Internet pour Open-Meteo
+
   # ------------------------------------------------------------ API REST
   api:
     <<: *backend

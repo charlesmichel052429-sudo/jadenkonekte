@@ -1407,7 +1407,11 @@ components:
         declenche: { type: boolean }
         motif:
           type: string
-          enum: [arrosage, sol_humide, pluie_prevue, delai_non_ecoule, mesures_insuffisantes, meteo_indisponible, regle_inactive]
+          enum: [arrosage, sol_humide, pluie_prevue, delai_non_ecoule, vanne_ouverte, mesures_insuffisantes,
+                 meteo_indisponible, commande_echec, sans_vanne]
+          description: |
+            Une décision d'arrosage est toujours journalisée ; une abstention ne l'est que si son motif
+            change, ou toutes les 30 minutes si le motif reste le même.
         humidite: { type: [number, 'null'] }
         pluie_prevue_mm: { type: [number, 'null'] }
         source_meteo: { type: [string, 'null'], enum: [api, cache, null] }
@@ -1433,7 +1437,9 @@ components:
         source:
           type: string
           enum: [api, cache]
-          description: "`cache` : Open-Meteo injoignable, dernières prévisions connues"
+          description: |
+            `api` : prévisions obtenues d'Open-Meteo il y a moins de 30 min ;
+            `cache` : Open-Meteo injoignable, dernières prévisions connues (6 h au plus)
         obtenues_le: { type: string, format: date-time }
         cumul_pluie_mm: { type: number }
         heures:

@@ -15,7 +15,8 @@ const LIBELLES_STATUT = { envoyee: "En attente", confirmee: "Confirmée", expire
 const MOTIFS = {
   arrosage: "Arrosage déclenché", sol_humide: "Sol assez humide", pluie_prevue: "Pluie prévue",
   delai_non_ecoule: "Délai minimal non écoulé", mesures_insuffisantes: "Mesures valides insuffisantes",
-  meteo_indisponible: "Météo indisponible", regle_inactive: "Règle désactivée",
+  meteo_indisponible: "Météo indisponible : pas d'arrosage automatique", vanne_ouverte: "Vanne déjà ouverte",
+  commande_echec: "Commande non transmise (broker)", sans_vanne: "Aucune vanne",
 };
 const MOTIFS_INVALIDES = { hors_bornes: "hors des bornes plausibles", saut: "saut brutal", unite: "unité incorrecte" };
 
@@ -171,6 +172,36 @@ function panneauVanne(equipement) {
   };
 }
 
+// ------------------------------------------------------------------ météo
+function panneauMeteo(parcelleId) {
+  const corps = el("div", {}, el("p", { class: "muted" }, "Chargement des prévisions…"));
+  const noeud = el("section", { class: "carte panneau-meteo" },
+    el("h2", { class: "carte-titre" }, icone("pluie"), "Pluie prévue · 12 h"), corps);
+
+  async function charger() {
+    try {
+      const p = await api(`/parcelles/${parcelleId}/previsions?heures=12`);
+      const max = Math.max(2, ...p.heures.map((h) => h.pluie_mm));
+      corps.replaceChildren(
+        el("div", { class: "meteo-cumul" },
+          el("strong", {}, `${nombre(p.cumul_pluie_mm)} mm`),
+          el("span", { class: `badge ${p.source === "api" ? "badge-direct" : "badge-attente"}` },
+            p.source === "api" ? "Open-Meteo" : "Cache de secours")),
+        el("div", { class: "barres-pluie", role: "img", "aria-label": `Pluie prévue sur 12 h : ${nombre(p.cumul_pluie_mm)} mm` },
+          p.heures.map((h) => el("div", { class: "barre", title: `${heure(h.ts)} : ${nombre(h.pluie_mm)} mm` +
+              (h.probabilite_pluie != null ? ` (probabilité ${h.probabilite_pluie} %)` : "") },
+            el("span", { style: `height:${Math.max(2, (h.pluie_mm / max) * 100)}%` }),
+            el("small", {}, heure(h.ts).slice(0, 2))))),
+        el("p", { class: "muted petit" }, `Prévisions obtenues ${ilYa(p.obtenues_le)} · mises en cache 30 min`));
+    } catch (e) {
+      corps.replaceChildren(el("p", { class: "alerte-capteur" }, icone("alerte"), e.message));
+    }
+  }
+  charger();
+  const minuterie = setInterval(charger, 10 * 60e3);
+  return { noeud, arreter: () => clearInterval(minuterie) };
+}
+
 // ------------------------------------------------------------------ règles
 function formulaireRegle(regle, surEnregistrer, surAnnuler) {
   const r = regle || { nom: "Arrosage automatique", seuil_humidite: 25, pluie_max_mm: 2, horizon_h: 6, duree_s: 600, delai_min_s: 3600, active: true };
@@ -302,6 +333,7 @@ export default async function vueParcelle(racine, [id]) {
   const cartes = Object.fromEntries(capteurs.map((c) => [c.grandeur, carteCapteur(c)]));
   const vanne = panneauVanne(equipements[0]);
   const regles = panneauRegles(pid);
+  const meteo = panneauMeteo(pid);
 
   // Graphique
   let grandeur = "humidite", periode = "24h";
@@ -349,7 +381,7 @@ export default async function vueParcelle(racine, [id]) {
           el("div", { class: "zone-graphique" }, canvas),
           legende),
         regles.noeud),
-      el("div", { class: "colonne" }, vanne.noeud)));
+      el("div", { class: "colonne" }, vanne.noeud, meteo.noeud)));
 
   await chargerGraphique();
 
@@ -388,6 +420,7 @@ export default async function vueParcelle(racine, [id]) {
     clearTimeout(reconnexion);
     clearInterval(tic);
     clearInterval(majGraphiqueMin);
+    meteo.arreter();
     graphique.destroy();
   };
 }

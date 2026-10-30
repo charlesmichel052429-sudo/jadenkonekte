@@ -2,15 +2,17 @@
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 
 from ..config import configurer_journal, parametres
 from ..db import creer_pool
+from ..meteo import ServiceMeteo
 from ..mqtt_publieur import PublieurMqtt
 from . import erreurs
 from .amorcage import amorcer
 from .evenements import Diffuseur
-from .routes import capteurs, equipements, exploitations, parcelles, regles, supervision, utilisateurs
+from .routes import capteurs, equipements, exploitations, meteo, parcelles, regles, supervision, utilisateurs
 
 log = logging.getLogger(__name__)
 
@@ -26,9 +28,12 @@ async def cycle_de_vie(app: FastAPI):
     publieur.demarrer()
     diffuseur = Diffuseur(p.database_url)
     await diffuseur.demarrer()
+    client_http = httpx.AsyncClient(timeout=5.0)
     app.state.pool, app.state.publieur, app.state.diffuseur = pool, publieur, diffuseur
+    app.state.meteo = ServiceMeteo(pool, client_http, p.meteo_ttl_s, p.meteo_age_max_s)
     await amorcer(pool, p)
     yield
+    await client_http.aclose()
     await diffuseur.arreter()
     publieur.arreter()
     await pool.close()
@@ -41,5 +46,5 @@ app = FastAPI(
     lifespan=cycle_de_vie,
 )
 erreurs.installer(app)
-for module in (supervision, utilisateurs, exploitations, parcelles, capteurs, equipements, regles):
+for module in (supervision, utilisateurs, exploitations, parcelles, capteurs, equipements, regles, meteo):
     app.include_router(module.router, prefix="/api/v1")

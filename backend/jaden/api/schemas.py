@@ -261,6 +261,21 @@ class Decision(BaseModel):
     commande_id: str | None = None
 
 
+class HeurePrevision(BaseModel):
+    ts: datetime
+    pluie_mm: float
+    probabilite_pluie: int | None = None
+
+
+class Previsions(BaseModel):
+    lat: float
+    lon: float
+    source: Literal["api", "cache"]
+    obtenues_le: datetime
+    cumul_pluie_mm: float
+    heures: list[HeurePrevision]
+
+
 class Sante(BaseModel):
     statut: Literal["ok", "degrade"]
     version: str

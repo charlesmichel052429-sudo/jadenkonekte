@@ -35,6 +35,7 @@ curl.exe http://localhost:8000/api/v1/sante
 | `db` | PostgreSQL 16 + TimescaleDB (hypertable `mesure`) + pgvector | donnees |
 | `ingestion` | Abonné MQTT QoS 1 : validation, mesures aberrantes, dédoublonnage, stockage, NOTIFY temps réel | iot, donnees |
 | `api` | FastAPI : JWT, rôles, contrôle d'accès objet, REST + SSE, publication des commandes de vanne | iot, donnees, web |
+| `regles` | Évalue les règles chaque minute : humidité valide + pluie prévue (Open-Meteo, cache 30 min, secours 6 h) → commande de vanne, journal des décisions | iot, donnees |
 | `front` | nginx : interface web (HTML/CSS/JS modules, Chart.js) + proxy `/api` (même origine, CSP stricte) | web |
 | `simulateur` | Simulateur du kit (3 parcelles, vanne commandable, pannes) | iot |
 

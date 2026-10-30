@@ -31,6 +31,14 @@ class Parametres(BaseSettings):
     saut_fenetre_s: int = 1800           # contrôle de saut si la mesure valide précédente a moins de 30 min
     commande_expiration_s: int = 60      # commande non confirmée par l'objet après ce délai : expirée
 
+    # Règles d'arrosage et météo
+    regles_periode_s: int = 60           # évaluation des règles chaque minute
+    regles_fenetre_humidite_s: int = 600 # humidité = moyenne des mesures valides des 10 dernières minutes…
+    regles_mesures_min: int = 3          # … dont au moins 3 (sinon capteur jugé indisponible)
+    journal_repetition_s: int = 1800     # une abstention identique n'est rejournalisée que toutes les 30 min
+    meteo_ttl_s: int = 1800              # prévisions réutilisées 30 min sans rappeler Open-Meteo
+    meteo_age_max_s: int = 6 * 3600      # cache de secours accepté jusqu'à 6 h si Open-Meteo est injoignable
+
 
 @lru_cache
 def parametres() -> Parametres:
