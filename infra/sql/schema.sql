@@ -194,6 +194,12 @@ CREATE TABLE passage (
   section     VARCHAR(200),
   contenu     TEXT NOT NULL,
   embedding   vector(384),
+  -- recherche plein texte (stemming français), combinée à la recherche vectorielle : recherche hybride.
+  -- Le titre de section pèse plus (A) que le texte (B) : « mildiou » doit d'abord trouver la section Mildiou.
+  tsv         tsvector GENERATED ALWAYS AS (
+                setweight(to_tsvector('french', coalesce(section, '')), 'A') ||
+                setweight(to_tsvector('french', contenu), 'B')) STORED,
   UNIQUE (source, section)
 );
 CREATE INDEX passage_embedding_idx ON passage USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX passage_tsv_idx ON passage USING gin (tsv);

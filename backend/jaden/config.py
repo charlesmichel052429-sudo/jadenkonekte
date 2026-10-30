@@ -39,6 +39,17 @@ class Parametres(BaseSettings):
     meteo_ttl_s: int = 1800              # prévisions réutilisées 30 min sans rappeler Open-Meteo
     meteo_age_max_s: int = 6 * 3600      # cache de secours accepté jusqu'à 6 h si Open-Meteo est injoignable
 
+    # Assistant agronome (RAG)
+    assistant_url: str = "http://assistant:8000"
+    fiches_dossier: str = "/app/rag/fiches"
+    embeddings_cache: str | None = None
+    rag_k: int = 4                       # passages transmis au LLM
+    rag_seuil: float = 0.35              # similarité cosinus minimale (calibrée sur les questions de référence)
+    llm_fournisseur: str = "ollama"      # "ollama" (local) ou "anthropic" (API Claude, clé ANTHROPIC_API_KEY)
+    ollama_url: str = "http://ollama:11434"
+    ollama_modele: str = "qwen2.5:1.5b"
+    anthropic_modele: str = "claude-opus-5-5"
+
 
 @lru_cache
 def parametres() -> Parametres:

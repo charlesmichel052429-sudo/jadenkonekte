@@ -104,12 +104,53 @@ services:
     depends_on:
       db: { condition: service_healthy }
       mqtt: { condition: service_healthy }
-    networks: [iot, donnees, web]
+    networks: [iot, donnees, web, ia]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/sante', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ------------------------------------------------------------ assistant agronome (RAG : pgvector + LLM)
+  assistant:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.assistant
+    image: jaden-konekte/assistant:dev
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      FICHES_DOSSIER: /app/rag/fiches
+      LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-ollama}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODELE: ${OLLAMA_MODELE:-qwen2.5:1.5b}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODELE: ${ANTHROPIC_MODELE:-claude-opus-5-5}
+    volumes:
+      - ./ia/rag:/app/rag:ro            # fiches et questions de référence (réindexées au démarrage)
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [donnees, ia]           # aucun port publié : joignable uniquement par l'API
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/sante', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ------------------------------------------------------------ LLM local (profil « ollama », activé par défaut via .env)
+  ollama:
+    image: ollama/ollama:0.5.7
+    entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]
+    environment:
+      OLLAMA_MODELE: ${OLLAMA_MODELE:-qwen2.5:1.5b}
+      OLLAMA_KEEP_ALIVE: 30m          # garde le modèle en mémoire entre deux questions
+    volumes:
+      - ./infra/ollama/entrypoint.sh:/scripts/entrypoint.sh:ro
+      - ollama-data:/root/.ollama     # modèle téléchargé une seule fois
+    networks: [ia]
+    restart: unless-stopped
+    profiles: ["ollama"]
 
   # ------------------------------------------------------------ interface web (nginx : fichiers statiques + proxy /api)
   front:
@@ -140,8 +181,10 @@ services:
 networks:
   iot:        # objets, broker, services qui parlent MQTT
   donnees:    # base de données, jamais exposée aux objets
-  web:        # API (et plus tard le front)
+  web:        # API et front
+  ia:         # API, assistant RAG, LLM local
 
 volumes:
   mqtt-data:
   db-data:
+  ollama-data:

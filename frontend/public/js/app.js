@@ -6,6 +6,7 @@ import vueTableau from "./vues/tableau.js";
 import vueParcelle from "./vues/parcelle.js";
 import vueExploitations from "./vues/exploitations.js";
 import vueUtilisateurs from "./vues/utilisateurs.js";
+import vueAssistant from "./vues/assistant.js";
 
 const ROUTES = [
   { motif: /^\/connexion$/, vue: vueConnexion, publique: true },
@@ -13,12 +14,14 @@ const ROUTES = [
   { motif: /^\/$/, vue: vueTableau, nav: "tableau" },
   { motif: /^\/parcelles\/(\d+)$/, vue: vueParcelle, nav: "tableau" },
   { motif: /^\/exploitations$/, vue: vueExploitations, nav: "exploitations" },
+  { motif: /^\/assistant$/, vue: vueAssistant, nav: "assistant" },
   { motif: /^\/utilisateurs$/, vue: vueUtilisateurs, nav: "utilisateurs", admin: true },
 ];
 
 const NAV = [
   { id: "tableau", lien: "#/", libelle: "Tableau de bord", icone: "tableau" },
   { id: "exploitations", lien: "#/exploitations", libelle: "Parcelles", icone: "carte" },
+  { id: "assistant", lien: "#/assistant", libelle: "Assistant", icone: "feuille" },
   { id: "utilisateurs", lien: "#/utilisateurs", libelle: "Utilisateurs", icone: "personnes", admin: true },
 ];
 

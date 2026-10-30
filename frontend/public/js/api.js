@@ -54,6 +54,38 @@ export async function api(chemin, { methode = "GET", corps, signal } = {}) {
   return donnees;
 }
 
+// POST suivi d'une réponse SSE (EventSource ne sait faire que des GET) : lecture du flux avec fetch
+export async function posterFlux(chemin, corps, surEvenement, signal) {
+  const reponse = await fetch(BASE + chemin, {
+    method: "POST", signal,
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream", Authorization: `Bearer ${session.jeton}` },
+    body: JSON.stringify(corps),
+  });
+  if (!reponse.ok) {
+    const p = await reponse.json().catch(() => ({ status: reponse.status, title: reponse.statusText }));
+    if (reponse.status === 401) { session.fermer(); location.hash = "#/connexion"; }
+    throw new ErreurApi(p);
+  }
+  const lecteur = reponse.body.pipeThrough(new TextDecoderStream()).getReader();
+  let tampon = "";
+  for (;;) {
+    const { value, done } = await lecteur.read();
+    if (done) break;
+    tampon += value;
+    let fin;
+    while ((fin = tampon.indexOf("\n\n")) >= 0) {        // un événement SSE se termine par une ligne vide
+      const bloc = tampon.slice(0, fin);
+      tampon = tampon.slice(fin + 2);
+      let nom = "message", donnees = "";
+      for (const ligne of bloc.split("\n")) {
+        if (ligne.startsWith("event: ")) nom = ligne.slice(7);
+        else if (ligne.startsWith("data: ")) donnees += ligne.slice(6);
+      }
+      if (donnees) surEvenement(nom, JSON.parse(donnees));
+    }
+  }
+}
+
 export function urlFlux(parcelleId) {
   return `${BASE}/parcelles/${parcelleId}/evenements?jeton=${encodeURIComponent(session.jeton || "")}`;
 }

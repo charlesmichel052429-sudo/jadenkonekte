@@ -261,6 +261,19 @@ class Decision(BaseModel):
     commande_id: str | None = None
 
 
+class Question(Entree):
+    question: str = Field(min_length=3, max_length=1000)
+    parcelle_id: int | None = Field(default=None, ge=1)
+
+
+class Passage(BaseModel):
+    id: int
+    source: str
+    section: str | None = None
+    contenu: str
+    score: float
+
+
 class HeurePrevision(BaseModel):
     ts: datetime
     pluie_mm: float

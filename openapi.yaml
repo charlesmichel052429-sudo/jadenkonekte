@@ -829,8 +829,9 @@ paths:
                 data: {"texte":"Le mildiou se reconnaît à "}
 
                 event: fin
-                data: {"hors_corpus":false}
+                data: {"hors_corpus":false,"sources_citees":[1],"modele":"ollama/qwen2.5:1.5b"}
         '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
         '422': { $ref: '#/components/responses/DonneesInvalides' }
         '503': { $ref: '#/components/responses/Indisponible' }
 
