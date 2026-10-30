@@ -15,7 +15,7 @@ export default async function vueConnexion(racine, _params, { inscription }) {
     champ("Courriel", "courriel", "email", { autocomplete: "email" }),
     champ("Mot de passe", "mot_de_passe", "password", {
       autocomplete: inscription ? "new-password" : "current-password", minlength: inscription ? "8" : null }),
-    inscription ? el("p", { class: "aide" }, "8 caractères minimum. Le mot de passe est haché (Argon2) et n'est jamais stocké en clair.") : null,
+    inscription ? el("p", { class: "aide" }, "8 caractères minimum.") : null,
     el("p", { class: "erreur-formulaire", role: "alert" }),
     el("button", { class: "btn btn-principal btn-large", type: "submit" }, inscription ? "Créer mon compte" : "Se connecter"));
 
