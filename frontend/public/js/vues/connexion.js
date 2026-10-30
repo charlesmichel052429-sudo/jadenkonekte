@@ -47,7 +47,7 @@ export default async function vueConnexion(racine, _params, { inscription }) {
         el("p", {}, "Humidité du sol, météo, arrosage et santé des cultures : vos parcelles suivies en temps réel."),
         el("ul", { class: "atouts" },
           el("li", {}, icone("goutte"), "Arrosage piloté par l'humidité et la pluie prévue"),
-          el("li", {}, icone("signal"), "Capteurs MQTT en direct, valeurs aberrantes écartées"),
+          el("li", {}, icone("signal"), "Capteurs en direct, pannes détectées automatiquement"),
           el("li", {}, icone("feuille"), "Diagnostic des feuilles et assistant agronome"))),
       el("div", { class: "sillons" })),
     el("section", { class: "panneau-form" },

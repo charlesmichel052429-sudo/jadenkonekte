@@ -65,8 +65,7 @@ function carteCapteur(c) {
         if (m.anomalie) {                              // bonus : valeur plausible mais inhabituelle (z-score)
           refs.alerte.hidden = false;
           refs.alerte.replaceChildren(icone("alerte"),
-            `Valeur inhabituelle : ${valeurGrandeur(c.grandeur, m.valeur)}, à ${nombre(Math.abs(m.zscore), 1)} écarts-types `
-            + "des mesures récentes. Vérifiez le capteur.");
+            `Valeur inhabituelle : ${valeurGrandeur(c.grandeur, m.valeur)}. Vérifiez le capteur.`);
           clearTimeout(minuterieAlerte);
           minuterieAlerte = setTimeout(() => { refs.alerte.hidden = true; }, 60000);
         }
@@ -109,7 +108,7 @@ function panneauVanne(equipement) {
       el("div", {},
         el("strong", {}, ouverte ? "Ouverte" : eq.etat === "fermee" ? "Fermée" : "État inconnu"),
         el("span", { class: "muted" }, ouverte && reste !== null ? `fermeture automatique dans ${duree(reste)}`
-          : eq.maj_le ? `état confirmé par l'objet ${ilYa(eq.maj_le)}` : "en attente d'un message de l'objet")));
+          : eq.maj_le ? `état confirmé ${ilYa(eq.maj_le)}` : "en attente d'un signal de la vanne")));
   }
 
   async function chargerHistorique() {
@@ -127,7 +126,7 @@ function panneauVanne(equipement) {
       const cmd = await api(`/equipements/${eq.id}/commandes`, { methode: "POST", corps });
       attente = cmd.id;
       suivi.className = "suivi-commande attente";
-      suivi.textContent = "Commande publiée sur MQTT, en attente de confirmation par la vanne…";
+      suivi.textContent = "Commande envoyée, en attente de confirmation de la vanne…";
       if (confirmeesEnAvance.has(cmd.id)) { confirmer(cmd.id); return; }
       chargerHistorique();
       // Filet de sécurité si l'événement SSE est manqué : on interroge la commande
@@ -193,14 +192,13 @@ function panneauMeteo(parcelleId) {
       corps.replaceChildren(
         el("div", { class: "meteo-cumul" },
           el("strong", {}, `${nombre(p.cumul_pluie_mm)} mm`),
-          el("span", { class: `badge ${p.source === "api" ? "badge-direct" : "badge-attente"}` },
-            p.source === "api" ? "Open-Meteo" : "Cache de secours")),
+          p.source === "api" ? null : el("span", { class: "badge badge-attente" }, "Prévisions anciennes")),
         el("div", { class: "barres-pluie", role: "img", "aria-label": `Pluie prévue sur 12 h : ${nombre(p.cumul_pluie_mm)} mm` },
           p.heures.map((h) => el("div", { class: "barre", title: `${heure(h.ts)} : ${nombre(h.pluie_mm)} mm` +
               (h.probabilite_pluie != null ? ` (probabilité ${h.probabilite_pluie} %)` : "") },
             el("span", { style: `height:${Math.max(2, (h.pluie_mm / max) * 100)}%` }),
             el("small", {}, heure(h.ts).slice(0, 2))))),
-        el("p", { class: "muted petit" }, `Prévisions obtenues ${ilYa(p.obtenues_le)} · mises en cache 30 min`));
+        el("p", { class: "muted petit" }, `Mises à jour ${ilYa(p.obtenues_le)}`));
     } catch (e) {
       corps.replaceChildren(el("p", { class: "alerte-capteur" }, icone("alerte"), e.message));
     }
@@ -254,8 +252,7 @@ function panneauRegles(parcelleId) {
   const corps = el("div");
   const noeud = el("section", { class: "carte panneau-regles" },
     el("h2", { class: "carte-titre" }, icone("regle"), "Arrosage automatique"),
-    el("p", { class: "aide" }, "La vanne s'ouvre si l'humidité du sol (mesures valides uniquement) passe sous le seuil ",
-      el("strong", {}, "et"), " si la pluie prévue par Open-Meteo reste faible. Chaque évaluation est journalisée."),
+    el("p", { class: "aide" }, "La vanne s'ouvre automatiquement quand le sol devient trop sec, sauf si de la pluie est prévue."),
     corps);
 
   async function charger() {
@@ -312,7 +309,7 @@ function panneauRegles(parcelleId) {
             el("span", { class: "muted" }, [
               d.humidite != null ? `sol ${nombre(d.humidite)} %` : null,
               d.pluie_prevue_mm != null ? `pluie ${nombre(d.pluie_prevue_mm)} mm` : null,
-              d.source_meteo === "cache" ? "météo en cache" : null].filter(Boolean).join(" · ")))))
+              d.source_meteo === "cache" ? "prévisions anciennes" : null].filter(Boolean).join(" · ")))))
         : el("p", { class: "muted" }, "Aucune évaluation enregistrée pour l'instant."));
     bloc.replaceChildren(vue);
     return bloc;
@@ -334,7 +331,7 @@ export default async function vueParcelle(racine, [id]) {
   const badgeFlux = el("span", { class: "badge badge-attente" }, el("span", { class: "point" }), "Connexion au flux…");
   function rendreStatut(enLigne) {
     badgeObjet.className = `badge ${enLigne ? "badge-ok" : "badge-ko"}`;
-    badgeObjet.replaceChildren(el("span", { class: `point ${enLigne ? "en-ligne" : "hors-ligne"}` }), enLigne ? "Objet en ligne" : "Objet hors ligne");
+    badgeObjet.replaceChildren(el("span", { class: `point ${enLigne ? "en-ligne" : "hors-ligne"}` }), enLigne ? "Capteurs connectés" : "Capteurs déconnectés");
   }
   rendreStatut(parcelle.en_ligne);
 
@@ -358,9 +355,8 @@ export default async function vueParcelle(racine, [id]) {
     const q = new URLSearchParams({ grandeur, intervalle: p.intervalle, debut: debut.toISOString(), fin: fin.toISOString() });
     const ag = await api(`/parcelles/${pid}/agregats?${q}`);
     majGraphique(graphique, ag, grandeur, p.pasMs, periode === "7j", debut, fin);
-    const n = ag.reduce((s, a) => s + a.nombre, 0);
     legende.textContent = ag.length
-      ? `Moyenne par tranche de ${p.intervalle.replace("m", " min").replace("h", " h")}, bande min–max · ${n} mesures valides (valeurs aberrantes exclues)`
+      ? "Courbe : moyenne · zone colorée : minimum et maximum · valeurs erronées exclues"
       : "Pas encore de mesure valide sur cette période.";
   }
   function segments(conteneur, options, actuel, choisir) {
@@ -379,7 +375,6 @@ export default async function vueParcelle(racine, [id]) {
     enteteVue(parcelle.nom,
       `${exploitation ? exploitation.nom + " · " : ""}${parcelle.culture}${parcelle.surface_m2 ? ` · ${nombre(parcelle.surface_m2, 0)} m²` : ""}`,
       badgeObjet, badgeFlux),
-    el("p", { class: "topic" }, "Topic MQTT ", el("code", {}, `${parcelle.topic_mqtt}/#`)),
     el("div", { class: "grille-capteurs" }, ORDRE_GRANDEURS.filter((g) => cartes[g]).map((g) => cartes[g].noeud)),
     el("div", { class: "detail-grille" },
       el("div", { class: "colonne" },

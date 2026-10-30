@@ -92,22 +92,22 @@ async function panneauReseau(conteneur, admin) {
   if (!etat.active) { conteneur.replaceChildren(); return; }
   const inscrire = admin && !etat.inscrite ? el("button", { class: "btn btn-secondaire btn-petit", type: "button", onclick: async (ev) => {
     boutonOccupe(ev.currentTarget, true);
-    try { await api("/reseau/inscription", { methode: "POST" }); toast("Plateforme inscrite au réseau régional.", "succes"); }
+    try { await api("/reseau/inscription", { methode: "POST" }); toast("Vous avez rejoint le réseau régional.", "succes"); }
     catch (e) { toast(e.message, "erreur"); }
     panneauReseau(conteneur, admin);
-  } }, "Inscrire la plateforme") : null;
+  } }, "Rejoindre le réseau") : null;
   conteneur.replaceChildren(el("section", { class: "carte panneau-reseau" },
     el("div", { class: "graphique-entete" },
       el("h2", { class: "carte-titre" }, icone("signal"), "Réseau régional d'alertes"),
-      el("span", { class: `badge ${etat.inscrite ? "badge-ok" : "badge-attente"}` }, etat.inscrite ? `Inscrite · ${etat.groupe}` : "Non inscrite"),
+      el("span", { class: `badge ${etat.inscrite ? "badge-ok" : "badge-attente"}` }, etat.inscrite ? "Connecté" : "Non connecté"),
       inscrire),
     elements.length
       ? el("ol", { class: "liste-decisions" }, elements.map((a) => el("li", { class: a.origine === "reseau" ? "declenche" : "" },
           el("span", { class: "muted" }, dateHeure(a.recue_le)),
           el("strong", {}, `${a.libelle || a.type} · ${a.commune || "?"}`),
-          el("span", { class: "muted" }, a.origine === "reseau" ? `reçue de ${a.emetteur} · gravité ${a.gravite}`
-            : a.statut === "publiee" ? "publiée par cette plateforme" : "publication en échec (serveur central injoignable)"))))
-      : el("p", { class: "muted" }, "Aucune alerte pour l'instant. Une alerte est publiée quand un exploitant confirme un diagnostic de maladie.")));
+          el("span", { class: "muted" }, a.origine === "reseau" ? `signalée par ${a.emetteur} · gravité ${a.gravite}`
+            : a.statut === "publiee" ? "partagée par vous" : "non partagée (réseau injoignable)"))))
+      : el("p", { class: "muted" }, "Aucune alerte pour l'instant.")));
 }
 
 export default async function vueTableau(racine, _params, { profil }) {
@@ -117,8 +117,7 @@ export default async function vueTableau(racine, _params, { profil }) {
   const noeudCarte = el("div", { class: "carte-leaflet", role: "region", "aria-label": "Carte des exploitations" });
   const sectionCarte = el("section", { class: "carte panneau-carte" },
     el("h2", { class: "carte-titre" }, icone("carte"), "Carte des exploitations"), noeudCarte,
-    el("p", { class: "muted petit" }, "Couleur : parcelle la plus sèche de l'exploitation (seuils de la fiche irrigation). "
-      + "Cercles rouges : alertes reçues du réseau régional (position approximative)."));
+    el("p", { class: "muted petit" }, "Couleur : état de la parcelle la plus sèche. Cercles rouges : maladies signalées par d'autres exploitations."));
   racine.append(enteteVue(`Bonjour ${profil.prenom}`, "Vue d'ensemble de vos parcelles connectées.",
     el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, zone, sectionCarte, reseau);
   let carte = null;

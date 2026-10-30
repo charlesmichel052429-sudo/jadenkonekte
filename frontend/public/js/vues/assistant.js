@@ -1,6 +1,6 @@
 // Assistant agronome : questions en langage naturel, réponse diffusée en direct, sources citées
 import { api, posterFlux } from "../api.js";
-import { el, icone, enteteVue, nombre } from "../util.js";
+import { el, icone, enteteVue } from "../util.js";
 
 const SUGGESTIONS = [
   "Comment reconnaître le mildiou sur la tomate ?",
@@ -87,7 +87,7 @@ export default async function vueAssistant(racine) {
           cartesSources.push(...d.map((s) => el("details", { class: "carte-source" },
             el("summary", {}, el("span", { class: "num-source" }, String(s.numero)),
               el("span", {}, el("strong", {}, s.section), el("small", { class: "muted" }, ` · ${s.source}`)),
-              el("span", { class: "muted score" }, `similarité ${nombre(s.score, 2)}`)),
+              el("span")),
             el("p", {}, s.extrait, "…"))));
         } else if (nom === "fragment") {
           texte += d.texte;
@@ -96,8 +96,7 @@ export default async function vueAssistant(racine) {
           const citees = new Set(d.sources_citees);
           etat.replaceChildren(d.hors_corpus
             ? el("span", { class: "badge badge-attente" }, "Hors des fiches techniques")
-            : el("span", { class: "muted" }, `Réponse fondée sur ${citees.size} source(s) citée(s)`),
-            el("small", { class: "muted" }, ` · ${d.modele || "sans LLM"} · ${nombre((d.duree_ms || 0) / 1000, 1)} s`));
+            : el("span", { class: "muted" }, `D'après ${citees.size} fiche(s) technique(s)`));
           const utiles = cartesSources.filter((_, i) => citees.has(i + 1));
           zoneSources.replaceChildren(...(utiles.length
             ? [el("h3", { class: "sous-titre-carte" }, "Sources citées"), ...utiles]

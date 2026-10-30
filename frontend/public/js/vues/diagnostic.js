@@ -50,7 +50,7 @@ function carteResultat(d, surMaj) {
     d.alternatives.length ? el("div", { class: "alternatives" }, el("h3", { class: "sous-titre-carte" }, "Autres hypothèses"),
       d.alternatives.map((a) => el("div", { class: "alternative" }, el("span", {}, a.libelle), el("span", { class: "muted" }, `${nombre(a.score * 100, 0)} %`)))) : null,
     actions,
-    el("p", { class: "muted petit" }, `Modèle ${d.modele} · ${dateHeure(d.termine_le || d.cree_le)}`));
+    el("p", { class: "muted petit" }, dateHeure(d.termine_le || d.cree_le)));
 }
 
 export default async function vueDiagnostic(racine) {
@@ -79,7 +79,7 @@ export default async function vueDiagnostic(racine) {
   bouton.addEventListener("click", async () => {
     bouton.disabled = true;
     bouton.classList.add("occupe");
-    zoneResultat.replaceChildren(el("p", { class: "muted" }, "Analyse de la photo par le réseau de neurones…"));
+    zoneResultat.replaceChildren(el("p", { class: "muted" }, "Analyse de la photo…"));
     try {
       const d = await envoyer(fichier, selectParcelle.value);
       zoneResultat.replaceChildren(carteResultat(d, chargerHistorique));
@@ -105,7 +105,7 @@ export default async function vueDiagnostic(racine) {
   }
 
   racine.append(
-    enteteVue("Diagnostic des feuilles", "Réseau de neurones MobileNetV3 entraîné sur PlantVillage (10 classes de la tomate)."),
+    enteteVue("Diagnostic des feuilles", "Prenez en photo une feuille de tomate pour identifier une maladie."),
     el("div", { class: "detail-grille" },
       el("div", { class: "colonne" },
         el("section", { class: "carte depot-photo" },
@@ -114,10 +114,9 @@ export default async function vueDiagnostic(racine) {
         zoneResultat),
       el("div", { class: "colonne" },
         el("section", { class: "carte" }, el("h2", { class: "carte-titre" }, "Derniers diagnostics"), historique),
-        el("section", { class: "carte limites" }, el("h2", { class: "carte-titre" }, icone("alerte"), "Limites du modèle"),
-          el("p", { class: "muted" }, "Les images d'entraînement (PlantVillage) sont prises en laboratoire, feuille isolée sur fond uni. "
-            + "Au champ (fond chargé, ombres, plusieurs feuilles), la confiance baisse : le résultat est une aide, "
-            + "à confirmer par l'exploitant. Le flétrissement bactérien et les maladies hors des 10 classes ne sont pas reconnus.")))));
+        el("section", { class: "carte limites" }, el("h2", { class: "carte-titre" }, icone("alerte"), "Bien utiliser le diagnostic"),
+          el("p", { class: "muted" }, "Photographiez une seule feuille, à la lumière du jour, sur un fond uni. "
+            + "Le résultat est une aide à confirmer : certaines maladies, comme le flétrissement bactérien, ne sont pas reconnues.")))));
   await chargerHistorique();
   return () => { if (urlApercu) URL.revokeObjectURL(urlApercu); };
 }
