@@ -93,3 +93,21 @@ def test_commande_sans_confirmation_expire(client, alice, parcelle_alice, publie
     sql("UPDATE commande SET cree_le = now() - interval '5 minutes' WHERE id = $1", cmd["id"])
     assert executer(lambda ing: ing.expirer_commandes()) >= 1
     assert client.get(f"/api/v1/commandes/{cmd['id']}", headers=alice["h"]).json()["statut"] == "expiree"
+
+
+def test_valeur_inhabituelle_conservee_et_signalee(client, alice, parcelle_alice):
+    e, p = parcelle_alice
+    topic = f"jaden/{e['code']}/p1/sol/humidite"
+    t0 = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=10)
+
+    async def scenario(ing):
+        for i in range(25):                                    # historique stable autour de 30 %
+            await ing.traiter(topic, mesure(30.0 + 0.2 * (i % 3), t0 + timedelta(seconds=10 * i)))
+        await ing.traiter(topic, mesure(34.0, t0 + timedelta(seconds=260)))   # +4 % : sous le seuil de saut (15)
+        return ing.compteurs
+    c = executer(scenario)
+    assert c["anomalie"] == 1 and c["valide"] == 26
+    r = client.get(f"/api/v1/parcelles/{p['id']}/mesures?anomalies_seules=true", headers=alice["h"]).json()
+    assert r["total"] == 1
+    m = r["elements"][0]
+    assert m["valeur"] == 34.0 and m["valide"] is True and m["anomalie"] is True and m["zscore"] >= 4

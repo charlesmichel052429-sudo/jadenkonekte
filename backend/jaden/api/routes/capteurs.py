@@ -6,6 +6,7 @@ import asyncpg
 from fastapi import APIRouter, Query
 
 from ...config import parametres
+from ...ingestion.validation import SEUIL_ANOMALIE
 from .. import acces
 from .. import schemas as s
 from ..acces import Connexion
@@ -96,19 +97,21 @@ async def lister_mesures(
     debut: datetime | None = None,
     fin: datetime | None = None,
     inclure_invalides: bool = False,
+    anomalies_seules: Annotated[bool, Query(description="Seulement les valeurs inhabituelles (|z| >= 4)")] = False,
     page: Annotated[int, Query(ge=1)] = 1,
     taille: Annotated[int, Query(ge=1, le=1000)] = 100,
 ):
     await acces.parcelle(con, u, parcelle_id)
     debut, fin = _fenetre(debut, fin)
     cond = ("c.parcelle = $1 AND m.ts >= $2 AND m.ts < $3 AND ($4::text IS NULL OR c.grandeur = $4) "
-            "AND ($5 OR m.valide)")
-    args = (parcelle_id, debut, fin, grandeur, inclure_invalides)
+            "AND ($5 OR m.valide) AND (NOT $6 OR abs(m.zscore) >= $7)")
+    args = (parcelle_id, debut, fin, grandeur, inclure_invalides, anomalies_seules, SEUIL_ANOMALIE)
     total = await con.fetchval(f"SELECT count(*) FROM mesure m JOIN capteur c ON c.id = m.capteur WHERE {cond}", *args)
     rows = await con.fetch(
-        f"SELECT m.ts, m.capteur AS capteur_id, c.grandeur, m.valeur, c.unite, m.valide, m.motif AS motif_invalide "
+        f"SELECT m.ts, m.capteur AS capteur_id, c.grandeur, m.valeur, c.unite, m.valide, m.motif AS motif_invalide, "
+        f"m.zscore, coalesce(abs(m.zscore) >= $7, false) AS anomalie "
         f"FROM mesure m JOIN capteur c ON c.id = m.capteur WHERE {cond} "
-        f"ORDER BY m.ts DESC, c.id LIMIT $6 OFFSET $7", *args, taille, (page - 1) * taille)
+        f"ORDER BY m.ts DESC, c.id LIMIT $8 OFFSET $9", *args, taille, (page - 1) * taille)
     return {"elements": [dict(r) for r in rows], "total": total, "page": page, "taille": taille}
 
 

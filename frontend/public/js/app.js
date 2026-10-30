@@ -105,3 +105,8 @@ async function naviguer() {
 
 window.addEventListener("hashchange", naviguer);
 naviguer();
+
+// Bonus PWA : installation sur l'écran d'accueil et interface disponible hors connexion
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("Service worker non enregistré", e));
+}

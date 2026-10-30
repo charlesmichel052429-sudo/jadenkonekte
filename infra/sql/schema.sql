@@ -75,6 +75,7 @@ CREATE TABLE mesure (
   valeur    DOUBLE PRECISION NOT NULL,
   valide    BOOLEAN NOT NULL DEFAULT true,       -- false si aberrante (conservée pour la maintenance)
   motif     VARCHAR(30),                         -- hors_bornes, saut, unite… (NULL si valide)
+  zscore    REAL,                                -- bonus : écart aux mesures récentes (|z| >= 4 : valeur inhabituelle)
   recue_le  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (capteur, ts)                      -- idempotence : un doublon MQTT (QoS 1) est ignoré
 );

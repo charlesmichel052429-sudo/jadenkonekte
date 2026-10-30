@@ -55,6 +55,15 @@ Le fournisseur se choisit dans `.env` : `LLM_FOURNISSEUR=groq` avec `GROQ_API_KE
 Évaluation sur les 20 questions de référence : `ia/rag/evaluation.md`, régénérée par
 `docker compose exec -T assistant python -m jaden.assistant.evaluation --pause 8 > ia/rag/evaluation.md`.
 
+## Bonus réalisés
+
+| Bonus | Où | Remarques |
+|---|---|---|
+| Réseau régional d'alertes | `backend/jaden/api/reseau.py`, `routes/reseau.py` | inscription (administrateur), alerte publiée quand l'exploitant **confirme** un diagnostic fiable, webhook signé HMAC-SHA256 ; test local avec `COMPOSE_PROFILES=reseau` (serveur central du kit sur <http://localhost:8081/docs>) |
+| Détection d'anomalies | `backend/jaden/ingestion/validation.py` (`zscore`) | z-score sur les 60 dernières mesures valides (humidité, température) ; une valeur à 4 écarts-types est conservée mais signalée |
+| Carte des parcelles | tableau de bord (Leaflet, tuiles OpenStreetMap) | couleur selon la parcelle la plus sèche ; alertes du réseau en rouge |
+| PWA | `frontend/public/manifest.webmanifest`, `sw.js` | installable ; l'interface reste disponible hors connexion, les données de l'API ne sont jamais mises en cache |
+
 ## Tests
 
 ```powershell

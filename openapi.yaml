@@ -420,6 +420,10 @@ paths:
         - name: inclure_invalides
           in: query
           schema: { type: boolean, default: false }
+        - name: anomalies_seules
+          in: query
+          description: Seulement les valeurs inhabituelles (|z| >= 4, bonus détection d'anomalies)
+          schema: { type: boolean, default: false }
         - $ref: '#/components/parameters/Page'
         - name: taille
           in: query
@@ -1348,6 +1352,14 @@ components:
         motif_invalide:
           type: [string, 'null']
           example: hors_bornes
+        zscore:
+          type: [number, 'null']
+          description: |
+            Bonus détection d'anomalies : écart à la moyenne des 60 dernières mesures valides du capteur,
+            en écarts-types (humidité et température ; null pendant le démarrage)
+        anomalie:
+          type: boolean
+          description: "|zscore| >= 4 : valeur plausible mais inhabituelle (conservée, signalée)"
 
     PageMesures:
       allOf:
@@ -1616,6 +1628,8 @@ components:
         gravite: { type: [string, 'null'] }
         commune: { type: [string, 'null'] }
         score: { type: [number, 'null'] }
+        lat: { type: [number, 'null'], description: Position approximative (~1 km) si l'émetteur l'a fournie }
+        lon: { type: [number, 'null'] }
         recue_le: { type: string, format: date-time }
 
     PageAlertes:

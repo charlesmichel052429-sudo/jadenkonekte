@@ -46,6 +46,46 @@ function carteParcelle(p, capteurs, vanne) {
     el("p", { class: "maj muted" }, `Dernière mesure ${ilYa(derniere)}`));
 }
 
+// Bonus carte : exploitations (cercle coloré selon la parcelle la plus sèche) et alertes du réseau régional
+const COULEURS_ETAT = { critique: "#c0392b", vigilance: "#e0a526", bon: "#2f8a55", humide: "#1f7fb8", neutre: "#8a8f87" };
+const ORDRE_ETAT = ["critique", "vigilance", "bon", "humide", "neutre"];
+
+function creerCarte(noeud) {
+  const carte = window.L.map(noeud, { scrollWheelZoom: false }).setView([16.2, -61.55], 9);   // Guadeloupe
+  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18, referrerPolicy: "strict-origin-when-cross-origin",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(carte);
+  return { carte, calque: window.L.layerGroup().addTo(carte), cadree: false };
+}
+
+function majCarte(c, exploitations, parcelles, details, alertes) {
+  const L = window.L;
+  c.calque.clearLayers();
+  const points = [];
+  for (const e of exploitations.filter((x) => x.lat != null && x.lon != null)) {
+    const siennes = parcelles.map((p, i) => [p, details[i]]).filter(([p]) => p.exploitation_id === e.id);
+    const etats = siennes.map(([, [capteurs]]) => etatHumidite(capteurs.find((x) => x.grandeur === "humidite")?.derniere_mesure?.valeur ?? null).classe);
+    const pire = ORDRE_ETAT.find((k) => etats.includes(k)) || "neutre";
+    const popup = el("div", { class: "popup-carte" }, el("strong", {}, e.nom), el("br"), el("span", {}, e.commune),
+      el("ul", {}, siennes.map(([p, [capteurs]]) => el("li", {}, el("a", { href: `#/parcelles/${p.id}` }, p.nom), " : ",
+        valeurGrandeur("humidite", capteurs.find((x) => x.grandeur === "humidite")?.derniere_mesure?.valeur ?? null)))));
+    L.circleMarker([e.lat, e.lon], { radius: 11, color: "#ffffff", weight: 2, fillColor: COULEURS_ETAT[pire], fillOpacity: 0.95 })
+      .bindPopup(popup).addTo(c.calque);
+    points.push([e.lat, e.lon]);
+  }
+  for (const a of alertes.filter((x) => x.lat != null && x.lon != null && x.origine === "reseau")) {
+    L.circle([a.lat, a.lon], { radius: 1500, color: "#c0392b", weight: 1, fillOpacity: 0.15 })
+      .bindPopup(el("div", {}, el("strong", {}, `Alerte : ${a.libelle || a.type}`), el("br"), `${a.commune} · signalée par ${a.emetteur}`))
+      .addTo(c.calque);
+    points.push([a.lat, a.lon]);
+  }
+  if (points.length && !c.cadree) {                     // cadrage une seule fois : ne pas déplacer la carte de l'utilisateur
+    c.carte.fitBounds(points, { padding: [40, 40], maxZoom: 12 });
+    c.cadree = true;
+  }
+}
+
 // Bonus réseau régional : alertes partagées entre plateformes (diagnostics confirmés par les exploitants)
 async function panneauReseau(conteneur, admin) {
   const [etat, { elements }] = await Promise.all([api("/reseau"), api("/alertes?taille=5")]);
@@ -74,8 +114,14 @@ export default async function vueTableau(racine, _params, { profil }) {
   const zone = el("div", { class: "zone-parcelles" });
   const kpis = el("div", { class: "grille-kpi" });
   const reseau = el("div");
+  const noeudCarte = el("div", { class: "carte-leaflet", role: "region", "aria-label": "Carte des exploitations" });
+  const sectionCarte = el("section", { class: "carte panneau-carte" },
+    el("h2", { class: "carte-titre" }, icone("carte"), "Carte des exploitations"), noeudCarte,
+    el("p", { class: "muted petit" }, "Couleur : parcelle la plus sèche de l'exploitation (seuils de la fiche irrigation). "
+      + "Cercles rouges : alertes reçues du réseau régional (position approximative)."));
   racine.append(enteteVue(`Bonjour ${profil.prenom}`, "Vue d'ensemble de vos parcelles connectées.",
-    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, zone, reseau);
+    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, zone, sectionCarte, reseau);
+  let carte = null;
   panneauReseau(reseau, profil.role === "administrateur").catch(() => reseau.replaceChildren());
 
   async function charger() {
@@ -110,9 +156,17 @@ export default async function vueTableau(racine, _params, { profil }) {
         el("div", { class: "grille-parcelles" }, idx.map(([p, i]) => carteParcelle(p, details[i][0], details[i][1][0]))));
     });
     zone.replaceChildren(...groupes.filter(Boolean));
+
+    if (window.L) {
+      carte ??= creerCarte(noeudCarte);
+      const alertes = await api("/alertes?taille=50").then((r) => r.elements).catch(() => []);
+      majCarte(carte, exploitations, parcelles, details, alertes);
+    } else {
+      sectionCarte.hidden = true;
+    }
   }
 
   await charger();
   const minuterie = setInterval(() => charger().catch(() => {}), RAFRAICHISSEMENT_MS);
-  return () => clearInterval(minuterie);
+  return () => { clearInterval(minuterie); carte?.carte.remove(); };
 }

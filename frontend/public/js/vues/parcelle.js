@@ -62,6 +62,14 @@ function carteCapteur(c) {
       if (m.valide) {
         derniereTs = m.ts;
         valeur(m.valeur);
+        if (m.anomalie) {                              // bonus : valeur plausible mais inhabituelle (z-score)
+          refs.alerte.hidden = false;
+          refs.alerte.replaceChildren(icone("alerte"),
+            `Valeur inhabituelle : ${valeurGrandeur(c.grandeur, m.valeur)}, à ${nombre(Math.abs(m.zscore), 1)} écarts-types `
+            + "des mesures récentes. Vérifiez le capteur.");
+          clearTimeout(minuterieAlerte);
+          minuterieAlerte = setTimeout(() => { refs.alerte.hidden = true; }, 60000);
+        }
         noeud.classList.remove("flash");
         void noeud.offsetWidth;                        // relance l'animation
         noeud.classList.add("flash");

@@ -57,7 +57,9 @@ async def lister_alertes(_: Utilisateur, con: Connexion, pg: Paginer,
                            "ORDER BY recue_le DESC LIMIT $2 OFFSET $3", origine, pg.taille, pg.decalage)
     return pg.enveloppe([{k: r[k] for k in ("id", "origine", "statut", "emetteur", "type", "culture", "maladie",
                                              "gravite", "commune", "recue_le")}
-                         | {"score": r["contenu"].get("score"), "libelle": libelles().get(r["maladie"], r["maladie"])}
+                         | {"score": r["contenu"].get("score"), "libelle": libelles().get(r["maladie"], r["maladie"]),
+                            "lat": (r["contenu"].get("position") or {}).get("lat"),
+                            "lon": (r["contenu"].get("position") or {}).get("lon")}
                          for r in rows], total)
 
 

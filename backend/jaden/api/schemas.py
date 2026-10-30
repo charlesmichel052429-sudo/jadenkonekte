@@ -156,6 +156,8 @@ class Mesure(BaseModel):
     unite: str
     valide: bool
     motif_invalide: str | None = None
+    zscore: float | None = None
+    anomalie: bool = False
 
 
 class Capteur(BaseModel):
@@ -301,6 +303,8 @@ class AlerteReseau(BaseModel):
     gravite: str | None = None
     commune: str | None = None
     score: float | None = None
+    lat: float | None = None
+    lon: float | None = None
     recue_le: datetime
 
 

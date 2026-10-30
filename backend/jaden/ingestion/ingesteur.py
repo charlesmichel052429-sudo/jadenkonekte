@@ -2,7 +2,7 @@
 import json
 import logging
 import time
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -36,6 +36,7 @@ class Ingesteur:
         self._charge_le = 0.0
         self.precedentes: dict[int, tuple[datetime, float]] = {}   # dernière mesure valide par capteur
         self.sauts: dict[int, tuple[datetime, float]] = {}         # dernière mesure, si marquée « saut »
+        self.fenetres: dict[int, deque] = {}                       # 60 dernières valeurs valides (z-score)
         self.compteurs: Counter = Counter()
 
     # ------------------------------------------------------------------ référentiel (cache)
@@ -113,11 +114,15 @@ class Ingesteur:
                     self.precedentes[capteur.id] = (r["ts"], r["valeur"])
             verdict = v.juger(m, capteur.regles, self.precedentes.get(capteur.id), self.p.saut_fenetre_s,
                               self.sauts.get(capteur.id))
+            z = None
+            if verdict.valide and capteur.grandeur in v.ECART_MIN:
+                fenetre = self.fenetres.setdefault(capteur.id, deque(maxlen=60))
+                z = v.zscore(m.valeur, list(fenetre), v.ECART_MIN[capteur.grandeur])
             # Clé primaire (capteur, ts) + ON CONFLICT DO NOTHING : un message rejoué par QoS 1 est ignoré
             inseree = await con.fetchval(
-                "INSERT INTO mesure (ts, capteur, valeur, valide, motif) VALUES ($1, $2, $3, $4, $5) "
+                "INSERT INTO mesure (ts, capteur, valeur, valide, motif, zscore) VALUES ($1, $2, $3, $4, $5, $6) "
                 "ON CONFLICT (capteur, ts) DO NOTHING RETURNING true",
-                m.ts, capteur.id, m.valeur, verdict.valide, verdict.motif)
+                m.ts, capteur.id, m.valeur, verdict.valide, verdict.motif, z)
             if not inseree:
                 self.compteurs["doublon"] += 1
                 return
@@ -128,12 +133,18 @@ class Ingesteur:
                 self.sauts.pop(capteur.id, None)
             if verdict.valide:
                 self.precedentes[capteur.id] = (m.ts, m.valeur)
+                if capteur.id in self.fenetres:
+                    self.fenetres[capteur.id].append(m.valeur)
+                if z is not None and abs(z) >= v.SEUIL_ANOMALIE:
+                    self.compteurs["anomalie"] += 1
+                    log.info("Valeur inhabituelle capteur %s : %s (z = %s)", capteur.id, m.valeur, z)
             else:
                 log.info("Mesure invalide (%s) capteur %s : %s %s", verdict.motif, capteur.id, m.valeur, m.unite)
             await notifier(con, capteur.parcelle_id, "mesure", {
                 "capteur_id": capteur.id, "grandeur": capteur.grandeur, "valeur": m.valeur,
                 "unite": capteur.regles.unite, "ts": m.ts.isoformat(), "valide": verdict.valide,
-                "motif_invalide": verdict.motif})
+                "motif_invalide": verdict.motif, "zscore": z,
+                "anomalie": z is not None and abs(z) >= v.SEUIL_ANOMALIE})
 
     # ------------------------------------------------------------------ vanne
     async def _etat_vanne(self, expl: str, parc: str, charge: bytes) -> None:

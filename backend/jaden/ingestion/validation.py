@@ -9,6 +9,7 @@ Deux niveaux :
 """
 import json
 import math
+import statistics
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -71,6 +72,22 @@ def lire(charge: bytes, maintenant: datetime, tolerance_futur_s: int, age_max_s:
 
     unite = msg.get("unite")
     return MesureLue(float(valeur), unite if isinstance(unite, str) else None, ts.astimezone(timezone.utc))
+
+
+# ------------------------------------------------------------------ bonus : détection d'anomalies
+# Seuils propres à chaque grandeur : la luminosité et la pluie varient brutalement par nature (nuages, averses).
+ECART_MIN = {"humidite": 0.5, "temperature": 0.4}   # écart-type plancher : évite les fausses alertes d'un signal très stable
+FENETRE_MIN, SEUIL_ANOMALIE = 20, 4.0
+
+
+def zscore(valeur: float, historique: list[float], ecart_min: float) -> float | None:
+    """Écart à la moyenne des dernières mesures valides, en nombre d'écarts-types.
+    None tant que l'historique est trop court pour être représentatif."""
+    if len(historique) < FENETRE_MIN:
+        return None
+    moyenne = statistics.fmean(historique)
+    ecart = max(statistics.pstdev(historique), ecart_min)
+    return round((valeur - moyenne) / ecart, 2)
 
 
 def _proches(m: MesureLue, ref: tuple[datetime, float], ecart_max: float, fenetre_s: int) -> bool:

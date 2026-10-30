@@ -77,3 +77,15 @@ def test_changement_de_niveau_confirme_par_deux_mesures():
     assert juger(lire_(msg(valeur=35.6)), HUMIDITE, valide_avant, 1800, premiere).valide
     # en revanche, deux pics incohérents entre eux restent invalides
     assert juger(lire_(msg(valeur=80.0)), HUMIDITE, valide_avant, 1800, premiere).motif == "saut"
+
+
+# ------------------------------------------------------------------ bonus : détection d'anomalies (z-score)
+def test_zscore():
+    from jaden.ingestion.validation import zscore
+    stable = [30.0 + 0.3 * ((i % 5) - 2) for i in range(40)]          # humidité stable, bruit ±0,6
+    assert zscore(30.2, stable[:10], 0.5) is None                     # historique trop court : pas de verdict
+    assert abs(zscore(30.2, stable, 0.5)) < 1                         # valeur ordinaire
+    assert zscore(33.0, stable, 0.5) >= 4                             # +3 % : plausible mais inhabituel
+    assert zscore(26.5, stable, 0.5) <= -4
+    tendance = [20.0 + 0.1 * i for i in range(60)]                    # arrosage : hausse régulière
+    assert abs(zscore(26.1, tendance, 0.5)) < 4                       # une tendance n'est pas une anomalie
