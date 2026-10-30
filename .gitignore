@@ -13,7 +13,9 @@ ia/cnn/donnees/
 ia/cnn/PlantVillage*/
 ia/cnn/*.pt
 ia/cnn/*.onnx
+!ia/cnn/tomate_mobilenetv3.onnx
 ia/cnn/*.onnx.data
+!ia/cnn/tomate_mobilenetv3.onnx.data
 
 # Divers
 .vscode/
