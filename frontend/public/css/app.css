@@ -313,6 +313,23 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .saisie-actions { display: flex; gap: .6rem; justify-content: space-between; align-items: center; }
 .saisie-actions select { width: auto; max-width: 60%; min-height: 40px; }
 
+/* ------------------------------------------------------------------ diagnostic */
+.visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.depot-photo { display: grid; gap: .9rem; }
+.zone-depot { display: block; cursor: pointer; border: 2px dashed #cfd9c9; border-radius: 14px; background: var(--sable); transition: border-color .15s; }
+.zone-depot:hover, .depot-photo:focus-within .zone-depot { border-color: var(--feuille); }
+.apercu-photo { display: grid; place-items: center; gap: .35rem; min-height: 240px; padding: 1.2rem; text-align: center; }
+.apercu-photo img { max-width: 100%; max-height: 340px; border-radius: 10px; object-fit: contain; }
+.resultat-diagnostic { border-top: 4px solid var(--soleil-fonce); display: grid; gap: .6rem; }
+.resultat-diagnostic.sain { border-top-color: var(--feuille); }
+.resultat-diagnostic h2 { font: 650 1.6rem/1.15 var(--titre); }
+.petit-titre { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+.ligne-confiance { display: grid; grid-template-columns: 1fr auto; gap: .8rem; align-items: center; }
+.barre-confiance { height: 10px; border-radius: 999px; background: var(--trait); overflow: hidden; }
+.barre-confiance span { display: block; height: 100%; background: linear-gradient(90deg, var(--soleil), var(--feuille)); border-radius: inherit; }
+.alternative { display: flex; justify-content: space-between; gap: .6rem; padding: .35rem 0; border-bottom: 1px solid var(--trait); font-size: .9rem; }
+.limites p { font-size: .88rem; }
+
 /* ------------------------------------------------------------------ exploitations / tableaux */
 .creation, .liste-exploitations > * + * { margin-top: 1.1rem; }
 .liste-exploitations { margin-top: 1.1rem; }

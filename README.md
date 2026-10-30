@@ -36,6 +36,8 @@ curl.exe http://localhost:8000/api/v1/sante
 | `ingestion` | Abonné MQTT QoS 1 : validation, mesures aberrantes, dédoublonnage, stockage, NOTIFY temps réel | iot, donnees |
 | `api` | FastAPI : JWT, rôles, contrôle d'accès objet, REST + SSE, publication des commandes de vanne | iot, donnees, web |
 | `regles` | Évalue les règles chaque minute : humidité valide + pluie prévue (Open-Meteo, cache 30 min, secours 6 h) → commande de vanne, journal des décisions | iot, donnees |
+| `assistant` | RAG : 38 passages des fiches, recherche hybride pgvector + plein texte, LLM en streaming (Groq par défaut ; Ollama ou API Claude en option) | donnees, ia |
+| `diagnostic` | Inférence CNN (ONNX Runtime) dans un service séparé ; lit `ia/cnn/tomate_mobilenetv3.onnx` produit par `entrainement.py` (rechargé automatiquement après un nouvel entraînement) | ia |
 | `front` | nginx : interface web (HTML/CSS/JS modules, Chart.js) + proxy `/api` (même origine, CSP stricte) | web |
 | `simulateur` | Simulateur du kit (3 parcelles, vanne commandable, pannes) | iot |
 
@@ -46,10 +48,18 @@ Chaîne d'une commande : `POST /api/v1/equipements/{id}/commandes` (202, statut 
 `.../vanne/cmd` → l'objet applique et publie `.../vanne/etat` avec `derniere_cmd` → ingestion → statut
 `confirmee` (ou `expiree` sans réponse après 60 s).
 
+## Assistant agronome (LLM)
+
+Le fournisseur se choisit dans `.env` : `LLM_FOURNISSEUR=groq` avec `GROQ_API_KEY` (clé gratuite sur
+<https://console.groq.com>), ou `ollama` (local, `COMPOSE_PROFILES=ollama`), ou `anthropic` (`ANTHROPIC_API_KEY`).
+Évaluation sur les 20 questions de référence : `ia/rag/evaluation.md`, régénérée par
+`docker compose exec -T assistant python -m jaden.assistant.evaluation --pause 8 > ia/rag/evaluation.md`.
+
 ## Tests
 
 ```powershell
 docker compose run --rm api pytest
+docker compose run --rm diagnostic python -m pytest
 ```
 
 Les tests utilisent une base PostgreSQL/TimescaleDB réelle et jetable (`jaden_test`, recréée depuis

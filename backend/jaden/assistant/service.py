@@ -61,6 +61,10 @@ def sources_citees(texte: str, nb: int) -> list[int]:
     return sorted({int(n) for n in re.findall(r"\[(\d+)\]", texte) if 1 <= int(n) <= nb})
 
 
+# Certains modèles (gpt-oss) citent avec des crochets typographiques 【4】 : ramenés à [4]
+CROCHETS = str.maketrans({"【": "[", "】": "]", "〔": "[", "〕": "]"})
+
+
 async def repondre(app, question: str, culture: str | None):
     """Générateur d'événements SSE ; utilisé par la route et par le script d'évaluation."""
     p, debut = app.state.p, time.monotonic()
@@ -78,6 +82,7 @@ async def repondre(app, question: str, culture: str | None):
     texte = ""
     try:
         async for morceau in app.state.llm.flux(SYSTEME, message_utilisateur(question, retenus, culture)):
+            morceau = morceau.translate(CROCHETS)
             texte += morceau
             yield sse("fragment", {"texte": morceau})
     except LLMIndisponible as e:

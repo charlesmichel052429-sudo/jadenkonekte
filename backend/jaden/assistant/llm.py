@@ -1,4 +1,5 @@
 """Génération de la réponse : Ollama (local, par défaut) ou API Claude. La clé d'API reste côté serveur."""
+import asyncio
 import json
 import logging
 from typing import AsyncIterator
@@ -71,6 +72,77 @@ class Ollama:
             return False
 
 
+class ReessaiPossible(Exception):
+    """Échec passager AVANT le premier mot (quota, coupure réseau) : la requête peut être rejouée."""
+
+    def __init__(self, attente: float, motif: str):
+        super().__init__(motif)
+        self.attente, self.motif = attente, motif
+
+
+class Groq:
+    """API Groq (format compatible OpenAI : /chat/completions en streaming SSE). Clé lue dans GROQ_API_KEY."""
+    tentatives = 3
+
+    def __init__(self, url: str, modele: str, cle: str | None):
+        if not cle:
+            raise LLMIndisponible("GROQ_API_KEY absente du fichier .env")
+        self.url, self.modele, self.nom = url.rstrip("/"), modele, f"groq/{modele}"
+        self.client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=120.0),
+                                        headers={"Authorization": f"Bearer {cle}"})
+
+    async def flux(self, systeme: str, message: str) -> AsyncIterator[str]:
+        corps = {"model": self.modele, "stream": True, "temperature": 0.2, "max_completion_tokens": 2048,
+                 "messages": [{"role": "system", "content": systeme}, {"role": "user", "content": message}]}
+        if self.modele.startswith("openai/gpt-oss"):
+            corps["reasoning_effort"] = "low"          # modèle à raisonnement : effort réduit, réponse plus rapide
+        for tentative in range(1, self.tentatives + 1):
+            try:
+                async for texte in self._une_requete(corps):
+                    yield texte
+                return
+            except ReessaiPossible as e:
+                # Quota de l'offre gratuite (délai Retry-After indiqué par Groq) ou coupure réseau : rien n'a encore
+                # été envoyé au client, on peut rejouer la requête sans risque de réponse en double.
+                if tentative == self.tentatives:
+                    raise LLMIndisponible(e.motif) from e
+                log.warning("Groq : %s, nouvel essai dans %.0f s", e.motif, e.attente)
+                await asyncio.sleep(e.attente)
+
+    async def _une_requete(self, corps: dict) -> AsyncIterator[str]:
+        try:
+            async with self.client.stream("POST", f"{self.url}/chat/completions", json=corps) as r:
+                if r.status_code == 401:
+                    raise LLMIndisponible("clé GROQ_API_KEY refusée")
+                if r.status_code == 429:
+                    try:
+                        attente = float(r.headers.get("retry-after", "5"))
+                    except ValueError:
+                        attente = 5.0
+                    raise ReessaiPossible(min(max(attente, 0.0), 30.0), "quota Groq atteint, réessayez dans un instant")
+                if r.status_code != 200:
+                    raise LLMIndisponible(f"Groq a répondu {r.status_code}")
+                async for ligne in r.aiter_lines():           # SSE : « data: {...} », terminé par « data: [DONE] »
+                    if not ligne.startswith("data: "):
+                        continue
+                    donnees = ligne[6:]
+                    if donnees == "[DONE]":
+                        break
+                    choix = json.loads(donnees).get("choices") or [{}]
+                    texte = (choix[0].get("delta") or {}).get("content")
+                    if texte:
+                        yield texte
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            raise ReessaiPossible(2.0, f"Groq injoignable ({type(e).__name__})") from e
+        except httpx.HTTPError as e:
+            raise LLMIndisponible(f"Groq injoignable ({type(e).__name__})") from e
+        except ValueError as e:
+            raise LLMIndisponible("réponse de Groq illisible") from e
+
+    async def pret(self) -> bool:
+        return True
+
+
 class Claude:
     """API Claude via le SDK officiel ; la clé est lue dans ANTHROPIC_API_KEY (fichier .env)."""
 
@@ -111,6 +183,8 @@ class Claude:
 
 
 def creer_llm(p):
+    if p.llm_fournisseur == "groq":
+        return Groq(p.groq_url, p.groq_modele, p.groq_api_key)
     if p.llm_fournisseur == "anthropic":
         return Claude(p.anthropic_modele)
     return Ollama(p.ollama_url, p.ollama_modele)

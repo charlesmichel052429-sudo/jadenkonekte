@@ -6,6 +6,9 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY infra/sql/schema.sql /app/sql/schema.sql
 COPY openapi.yaml /app/openapi.yaml
+COPY ia/cnn/classes_fr.json /app/classes_fr.json
+# Volume des photos de diagnostic : créé avec le bon propriétaire (le service tourne sans privilèges)
+RUN mkdir -p /donnees/diagnostics && chown -R 1000:1000 /donnees
 COPY backend/pytest.ini /app/pytest.ini
 COPY backend/jaden /app/jaden
 COPY backend/tests /app/tests

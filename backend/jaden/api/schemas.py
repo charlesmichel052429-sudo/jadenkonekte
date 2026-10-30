@@ -261,6 +261,32 @@ class Decision(BaseModel):
     commande_id: str | None = None
 
 
+class AlternativeDiagnostic(BaseModel):
+    classe: str
+    libelle: str
+    score: float
+
+
+class Diagnostic(BaseModel):
+    id: int
+    parcelle_id: int | None = None
+    auteur_id: int | None = None
+    statut: Literal["en_cours", "termine", "echec"]
+    classe: str | None = None
+    libelle: str | None = None
+    score: float | None = None
+    fiable: bool | None = None
+    alternatives: list[AlternativeDiagnostic] = []
+    modele: str | None = None
+    confirme: bool | None = None
+    cree_le: datetime
+    termine_le: datetime | None = None
+
+
+class DiagnosticModification(Entree):
+    confirme: bool
+
+
 class Question(Entree):
     question: str = Field(min_length=3, max_length=1000)
     parcelle_id: int | None = Field(default=None, ge=1)

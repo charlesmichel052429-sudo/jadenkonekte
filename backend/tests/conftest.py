@@ -18,6 +18,7 @@ os.environ["DEMO_INITIALISER"] = "false"
 os.environ["ADMIN_COURRIEL"] = "admin-test@jaden-konekte.fr"
 os.environ["ADMIN_MOT_DE_PASSE"] = ADMIN_MDP = "admin-" + secrets.token_hex(8)
 os.environ.setdefault("JWT_SECRET", secrets.token_hex(32))
+os.environ["DIAGNOSTICS_DOSSIER"] = "/tmp/jaden-tests-diagnostics"
 SCHEMA = pathlib.Path(os.environ.get("SCHEMA_SQL", "/app/sql/schema.sql"))
 
 

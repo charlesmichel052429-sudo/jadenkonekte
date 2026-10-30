@@ -39,13 +39,23 @@ class Parametres(BaseSettings):
     meteo_ttl_s: int = 1800              # prévisions réutilisées 30 min sans rappeler Open-Meteo
     meteo_age_max_s: int = 6 * 3600      # cache de secours accepté jusqu'à 6 h si Open-Meteo est injoignable
 
+    # Diagnostic par image (CNN)
+    diagnostic_url: str = "http://diagnostic:8000"
+    diagnostics_dossier: str = "/donnees/diagnostics"   # images conservées (volume)
+    diagnostic_taille_max: int = 5 * 1024 * 1024
+    diagnostic_seuil_fiable: float = 0.7  # fiche 06_protocole_alerte : sous 0,7, reprendre des photos
+    classes_fr_fichier: str = "/app/classes_fr.json"
+
     # Assistant agronome (RAG)
     assistant_url: str = "http://assistant:8000"
     fiches_dossier: str = "/app/rag/fiches"
     embeddings_cache: str | None = None
     rag_k: int = 4                       # passages transmis au LLM
     rag_seuil: float = 0.35              # similarité cosinus minimale (calibrée sur les questions de référence)
-    llm_fournisseur: str = "ollama"      # "ollama" (local) ou "anthropic" (API Claude, clé ANTHROPIC_API_KEY)
+    llm_fournisseur: str = "ollama"      # "groq" (API, clé GROQ_API_KEY), "ollama" (local) ou "anthropic" (API Claude)
+    groq_url: str = "https://api.groq.com/openai/v1"
+    groq_modele: str = "openai/gpt-oss-120b"
+    groq_api_key: str | None = None
     ollama_url: str = "http://ollama:11434"
     ollama_modele: str = "qwen2.5:1.5b"
     anthropic_modele: str = "claude-opus-5-5"

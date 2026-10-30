@@ -99,6 +99,8 @@ services:
       ADMIN_COURRIEL: ${ADMIN_COURRIEL:-}
       ADMIN_MOT_DE_PASSE: ${ADMIN_MOT_DE_PASSE:-}
       DEMO_INITIALISER: ${DEMO_INITIALISER:-true}
+    volumes:
+      - diagnostics-data:/donnees/diagnostics   # photos envoyées pour diagnostic
     ports:
       - "8000:8000"
     depends_on:
@@ -122,6 +124,8 @@ services:
       <<: *backend-env
       FICHES_DOSSIER: /app/rag/fiches
       LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-ollama}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODELE: ${GROQ_MODELE:-openai/gpt-oss-120b}
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODELE: ${OLLAMA_MODELE:-qwen2.5:1.5b}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -137,6 +141,23 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  # ------------------------------------------------------------ inférence CNN (ONNX Runtime), service dédié
+  diagnostic:
+    build: ./inference
+    image: jaden-konekte/diagnostic:dev
+    restart: unless-stopped
+    environment:
+      MODELE_DOSSIER: /modeles
+      ONNX_FILS: 2
+    volumes:
+      - ./ia/cnn:/modeles:ro          # tomate_mobilenetv3.onnx + classes.json produits par entrainement.py
+    networks: [ia]                    # aucun port publié : joignable uniquement par l'API
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/sante', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   # ------------------------------------------------------------ LLM local (profil « ollama », activé par défaut via .env)
   ollama:
@@ -188,3 +209,4 @@ volumes:
   mqtt-data:
   db-data:
   ollama-data:
+  diagnostics-data:

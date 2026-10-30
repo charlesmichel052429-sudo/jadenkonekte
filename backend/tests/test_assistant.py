@@ -127,7 +127,7 @@ PASSAGE = {"id": 1, "source": "02_tomate_maladies.md", "section": "Mildiou", "co
 
 
 def test_reponse_citee_et_numeros_inventes_ignores(monkeypatch):
-    llm = FauxLLM("Taches huileuses brun-vert [1]. Voir aussi [7].")
+    llm = FauxLLM("Taches huileuses brun-vert 【1】. Voir aussi [7].")
     evts = evenements(llm, [PASSAGE, {**PASSAGE, "id": 2, "section": "Septoriose", "score": 0.2}], monkeypatch)
     noms = [n for n, _ in evts]
     assert noms[0] == "sources" and noms[-1] == "fin" and "fragment" in noms
@@ -151,6 +151,55 @@ def test_le_llm_peut_aussi_declarer_hors_corpus(monkeypatch):
 def test_llm_indisponible_evenement_erreur(monkeypatch):
     evts = evenements(FauxLLM(panne=True), [PASSAGE], monkeypatch)
     assert evts[-1][0] == "erreur" and evts[-1][1]["status"] == 503
+
+
+# ------------------------------------------------------------------ fournisseur Groq (format OpenAI)
+def test_groq_lit_le_flux_et_gere_les_erreurs():
+    from jaden.assistant.llm import Groq
+    recu = {}
+
+    def groq(requete):
+        recu["corps"] = json.loads(requete.content)
+        recu["auth"] = requete.headers["authorization"]
+        flux = (b'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n'
+                b'data: {"choices":[{"delta":{"content":"Arrosez le matin "}}]}\n\n'
+                b'data: {"choices":[{"delta":{"content":"[1]."}}]}\n\ndata: [DONE]\n\n')
+        return httpx.Response(200, content=flux, headers={"content-type": "text/event-stream"})
+
+    llm = Groq("https://groq.test/v1", "openai/gpt-oss-120b", "cle-de-test")
+    llm.client = httpx.AsyncClient(transport=httpx.MockTransport(groq), headers={"Authorization": "Bearer cle-de-test"})
+
+    async def lire():
+        return "".join([t async for t in llm.flux("système", "question")])
+    assert asyncio.run(lire()) == "Arrosez le matin [1]."
+    assert recu["auth"] == "Bearer cle-de-test" and recu["corps"]["stream"] is True
+    assert recu["corps"]["reasoning_effort"] == "low" and recu["corps"]["messages"][0]["role"] == "system"
+
+    # 429 puis succès : nouvel essai après le délai Retry-After
+    appels = []
+
+    def quota_puis_ok(requete):
+        appels.append(1)
+        return httpx.Response(429, headers={"retry-after": "0"}) if len(appels) == 1 else groq(requete)
+    llm.client = httpx.AsyncClient(transport=httpx.MockTransport(quota_puis_ok),
+                                   headers={"Authorization": "Bearer cle-de-test"})
+    assert asyncio.run(lire()) == "Arrosez le matin [1]." and len(appels) == 2
+
+    llm.client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(429, headers={"retry-after": "0"})))
+    try:
+        asyncio.run(lire())
+        assert False, "LLMIndisponible attendue"
+    except LLMIndisponible as e:
+        assert "quota" in str(e)
+
+
+def test_groq_sans_cle_refuse():
+    from jaden.assistant.llm import Groq
+    try:
+        Groq("https://groq.test/v1", "m", None)
+        assert False
+    except LLMIndisponible as e:
+        assert "GROQ_API_KEY" in str(e)
 
 
 # ------------------------------------------------------------------ relais par l'API

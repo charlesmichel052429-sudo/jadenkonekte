@@ -73,6 +73,7 @@ def main() -> None:
     ap.add_argument("--url", default="http://localhost:8000")
     ap.add_argument("--questions", default="/app/rag/questions_reference.json")
     ap.add_argument("--ids", type=int, nargs="*", help="sous-ensemble de questions (par défaut : toutes)")
+    ap.add_argument("--pause", type=float, default=0, help="secondes entre deux questions (quota d'une API gratuite)")
     a = ap.parse_args()
     questions = json.load(open(a.questions, encoding="utf-8"))
     if a.ids:
@@ -80,7 +81,9 @@ def main() -> None:
     sante = json.load(urllib.request.urlopen(f"{a.url}/sante"))
 
     lignes, details, reussis = [], [], 0
-    for q in questions:
+    for i, q in enumerate(questions):
+        if i and a.pause:
+            time.sleep(a.pause)
         r = interroger(a.url, q["question"])
         e = evaluer(q, r)
         reussis += e["verdict"] == "réussi"
