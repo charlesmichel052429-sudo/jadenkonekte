@@ -19,6 +19,8 @@ os.environ["ADMIN_COURRIEL"] = "admin-test@jaden-konekte.fr"
 os.environ["ADMIN_MOT_DE_PASSE"] = ADMIN_MDP = "admin-" + secrets.token_hex(8)
 os.environ.setdefault("JWT_SECRET", secrets.token_hex(32))
 os.environ["DIAGNOSTICS_DOSSIER"] = "/tmp/jaden-tests-diagnostics"
+os.environ["RESEAU_CENTRAL_URL"] = "http://central.test"          # serveur central simulé (MockTransport)
+os.environ["RESEAU_SECRET"] = "secret-de-test-0123456789"
 SCHEMA = pathlib.Path(os.environ.get("SCHEMA_SQL", "/app/sql/schema.sql"))
 
 

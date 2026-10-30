@@ -13,7 +13,7 @@ from . import erreurs
 from .amorcage import amorcer
 from .evenements import Diffuseur
 from .routes import (assistant, capteurs, diagnostics, equipements, exploitations, meteo, parcelles, regles,
-                     supervision, utilisateurs)
+                     reseau, supervision, utilisateurs)
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ async def cycle_de_vie(app: FastAPI):
     # LLM sur CPU : le premier mot peut tarder ; lecture longue autorisée sur le flux de l'assistant
     app.state.http_assistant = httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=300.0))
     app.state.http_diagnostic = httpx.AsyncClient(timeout=httpx.Timeout(5.0, read=60.0))
+    app.state.http_reseau = httpx.AsyncClient(timeout=10.0)
     app.state.pool, app.state.publieur, app.state.diffuseur = pool, publieur, diffuseur
     app.state.meteo = ServiceMeteo(pool, client_http, p.meteo_ttl_s, p.meteo_age_max_s)
     await amorcer(pool, p)
@@ -40,6 +41,7 @@ async def cycle_de_vie(app: FastAPI):
     await client_http.aclose()
     await app.state.http_assistant.aclose()
     await app.state.http_diagnostic.aclose()
+    await app.state.http_reseau.aclose()
     await diffuseur.arreter()
     publieur.arreter()
     await pool.close()
@@ -53,5 +55,5 @@ app = FastAPI(
 )
 erreurs.installer(app)
 for module in (supervision, utilisateurs, exploitations, parcelles, capteurs, equipements, regles, meteo, assistant,
-               diagnostics):
+               diagnostics, reseau):
     app.include_router(module.router, prefix="/api/v1")

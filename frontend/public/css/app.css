@@ -313,6 +313,11 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .saisie-actions { display: flex; gap: .6rem; justify-content: space-between; align-items: center; }
 .saisie-actions select { width: auto; max-width: 60%; min-height: 40px; }
 
+/* ------------------------------------------------------------------ réseau régional (bonus) */
+.panneau-reseau { margin-top: 2rem; }
+.panneau-reseau .graphique-entete { justify-content: flex-start; margin-bottom: .9rem; }
+.panneau-reseau .graphique-entete .btn { margin-left: auto; }
+
 /* ------------------------------------------------------------------ diagnostic */
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .depot-photo { display: grid; gap: .9rem; }

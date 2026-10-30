@@ -99,6 +99,12 @@ services:
       ADMIN_COURRIEL: ${ADMIN_COURRIEL:-}
       ADMIN_MOT_DE_PASSE: ${ADMIN_MOT_DE_PASSE:-}
       DEMO_INITIALISER: ${DEMO_INITIALISER:-true}
+      RESEAU_CENTRAL_URL: ${RESEAU_CENTRAL_URL:-}
+      RESEAU_GROUPE: ${RESEAU_GROUPE:-jaden-konekte}
+      RESEAU_NOM: ${RESEAU_NOM:-Jaden Konekté}
+      RESEAU_MEMBRES: ${RESEAU_MEMBRES:-}
+      RESEAU_URL_BASE: ${RESEAU_URL_BASE:-http://api:8000}
+      RESEAU_SECRET: ${RESEAU_SECRET:-}
     volumes:
       - diagnostics-data:/donnees/diagnostics   # photos envoyées pour diagnostic
     ports:
@@ -173,6 +179,16 @@ services:
     restart: unless-stopped
     profiles: ["ollama"]
 
+  # ------------------------------------------------------------ serveur central du réseau régional (kit), pour tester en local
+  serveur-central:
+    build: ./serveur-central
+    ports:
+      - "8081:8080"                   # http://localhost:8081/docs
+    volumes:
+      - central-data:/data
+    networks: [web]                   # appelle le webhook de l'API (http://api:8000/api/v1/webhooks/alertes)
+    profiles: ["reseau"]
+
   # ------------------------------------------------------------ interface web (nginx : fichiers statiques + proxy /api)
   front:
     build:
@@ -210,3 +226,4 @@ volumes:
   db-data:
   ollama-data:
   diagnostics-data:
+  central-data:

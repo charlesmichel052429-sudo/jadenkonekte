@@ -409,6 +409,11 @@ export default async function vueParcelle(racine, [id]) {
     flux.addEventListener("vanne", (e) => vanne.maj(JSON.parse(e.data)));
     flux.addEventListener("statut", (e) => rendreStatut(JSON.parse(e.data).statut === "online"));
     flux.addEventListener("decision", () => regles.recharger());
+    flux.addEventListener("alerte", (e) => {          // bonus réseau régional : alerte d'une autre plateforme
+      const a = JSON.parse(e.data);
+      toast(`Alerte du réseau régional : ${(a.maladie || "maladie").replace("Tomato___", "").replaceAll("_", " ")} `
+        + `signalée à ${a.commune} par ${a.emetteur} (gravité ${a.gravite}).`, "erreur");
+    });
   }
   ouvrirFlux();
 

@@ -1,7 +1,7 @@
 // Tableau de bord : toutes les parcelles accessibles, rafraîchi toutes les 30 s
 // (le temps réel SSE est réservé à la page d'une parcelle : un flux par onglet ouvert)
 import { api } from "../api.js";
-import { el, icone, enteteVue, etatVide, etatHumidite, valeurGrandeur, nombre, ilYa, GRANDEURS } from "../util.js";
+import { el, icone, enteteVue, etatVide, etatHumidite, valeurGrandeur, nombre, ilYa, dateHeure, toast, boutonOccupe, GRANDEURS } from "../util.js";
 
 const RAFRAICHISSEMENT_MS = 30000;
 
@@ -46,11 +46,37 @@ function carteParcelle(p, capteurs, vanne) {
     el("p", { class: "maj muted" }, `Dernière mesure ${ilYa(derniere)}`));
 }
 
+// Bonus réseau régional : alertes partagées entre plateformes (diagnostics confirmés par les exploitants)
+async function panneauReseau(conteneur, admin) {
+  const [etat, { elements }] = await Promise.all([api("/reseau"), api("/alertes?taille=5")]);
+  if (!etat.active) { conteneur.replaceChildren(); return; }
+  const inscrire = admin && !etat.inscrite ? el("button", { class: "btn btn-secondaire btn-petit", type: "button", onclick: async (ev) => {
+    boutonOccupe(ev.currentTarget, true);
+    try { await api("/reseau/inscription", { methode: "POST" }); toast("Plateforme inscrite au réseau régional.", "succes"); }
+    catch (e) { toast(e.message, "erreur"); }
+    panneauReseau(conteneur, admin);
+  } }, "Inscrire la plateforme") : null;
+  conteneur.replaceChildren(el("section", { class: "carte panneau-reseau" },
+    el("div", { class: "graphique-entete" },
+      el("h2", { class: "carte-titre" }, icone("signal"), "Réseau régional d'alertes"),
+      el("span", { class: `badge ${etat.inscrite ? "badge-ok" : "badge-attente"}` }, etat.inscrite ? `Inscrite · ${etat.groupe}` : "Non inscrite"),
+      inscrire),
+    elements.length
+      ? el("ol", { class: "liste-decisions" }, elements.map((a) => el("li", { class: a.origine === "reseau" ? "declenche" : "" },
+          el("span", { class: "muted" }, dateHeure(a.recue_le)),
+          el("strong", {}, `${a.libelle || a.type} · ${a.commune || "?"}`),
+          el("span", { class: "muted" }, a.origine === "reseau" ? `reçue de ${a.emetteur} · gravité ${a.gravite}`
+            : a.statut === "publiee" ? "publiée par cette plateforme" : "publication en échec (serveur central injoignable)"))))
+      : el("p", { class: "muted" }, "Aucune alerte pour l'instant. Une alerte est publiée quand un exploitant confirme un diagnostic de maladie.")));
+}
+
 export default async function vueTableau(racine, _params, { profil }) {
   const zone = el("div", { class: "zone-parcelles" });
   const kpis = el("div", { class: "grille-kpi" });
+  const reseau = el("div");
   racine.append(enteteVue(`Bonjour ${profil.prenom}`, "Vue d'ensemble de vos parcelles connectées.",
-    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, zone);
+    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, zone, reseau);
+  panneauReseau(reseau, profil.role === "administrateur").catch(() => reseau.replaceChildren());
 
   async function charger() {
     const [{ elements: parcelles }, { elements: exploitations }] = await Promise.all([

@@ -47,6 +47,8 @@ tags:
     description: Diagnostic des feuilles de tomate (CNN, service dédié)
   - name: assistant
     description: Assistant agronome (LLM + RAG)
+  - name: reseau
+    description: Réseau régional d'alertes entre plateformes (bonus)
   - name: supervision
 
 paths:
@@ -865,6 +867,84 @@ paths:
         '401': { $ref: '#/components/responses/NonAuthentifie' }
         '422': { $ref: '#/components/responses/DonneesInvalides' }
 
+  # ------------------------------------------------------------------ réseau régional d'alertes (bonus)
+  /api/v1/reseau:
+    get:
+      tags: [reseau]
+      summary: État de l'inscription au réseau régional
+      operationId: lireEtatReseau
+      responses:
+        '200':
+          description: État (le jeton du serveur central n'est jamais exposé)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EtatReseau' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+
+  /api/v1/reseau/inscription:
+    post:
+      tags: [reseau]
+      summary: Inscrire la plateforme auprès du serveur central (administrateur)
+      description: Appelle POST /v1/plateformes du serveur central (contrats/reseau-regional.openapi.yaml).
+      operationId: inscrireReseau
+      responses:
+        '201':
+          description: Plateforme inscrite
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EtatReseau' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '403': { $ref: '#/components/responses/Interdit' }
+        '409': { $ref: '#/components/responses/Conflit' }
+        '503': { $ref: '#/components/responses/Indisponible' }
+
+  /api/v1/alertes:
+    get:
+      tags: [reseau]
+      summary: Alertes émises (diagnostics confirmés) et reçues des autres plateformes
+      operationId: listerAlertesReseau
+      parameters:
+        - name: origine
+          in: query
+          schema: { type: string, enum: [locale, reseau] }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page d'alertes, les plus récentes d'abord
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageAlertes' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+
+  /api/v1/webhooks/alertes:
+    post:
+      tags: [reseau]
+      summary: Webhook appelé par le serveur central pour chaque alerte d'une autre plateforme
+      description: |
+        Pas de JWT : l'authenticité est garantie par `X-Jaden-Signature` = `sha256=` + HMAC-SHA256(secret, corps brut),
+        comparée en temps constant. Une alerte déjà reçue (même identifiant) est ignorée.
+      operationId: recevoirAlerte
+      security: []
+      parameters:
+        - name: x-jaden-signature
+          in: header
+          schema: { type: string }
+        - name: x-jaden-alerte
+          in: header
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Alerte du contrat reseau-regional.openapi.yaml }
+      responses:
+        '204': { description: Alerte reçue (ou déjà reçue) }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '413': { $ref: '#/components/responses/TropVolumineux' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+        '503': { $ref: '#/components/responses/Indisponible' }
+
 # ==================================================================== composants
 components:
   securitySchemes:
@@ -1487,6 +1567,15 @@ components:
         confirme: { type: [boolean, 'null'] }
         cree_le: { type: string, format: date-time }
         termine_le: { type: [string, 'null'], format: date-time }
+        alerte_reseau:
+          description: Alerte publiée sur le réseau régional après confirmation (bonus)
+          oneOf:
+            - type: object
+              required: [id, statut]
+              properties:
+                id: { type: string }
+                statut: { type: string, enum: [publiee, echec, recue] }
+            - type: 'null'
 
     PageDiagnostics:
       allOf:
@@ -1497,6 +1586,47 @@ components:
             elements:
               type: array
               items: { $ref: '#/components/schemas/Diagnostic' }
+
+    # ---------------------------------------------------------- réseau régional (bonus)
+    EtatReseau:
+      type: object
+      required: [active, inscrite, groupe]
+      properties:
+        active: { type: boolean, description: RESEAU_CENTRAL_URL configuré }
+        inscrite: { type: boolean }
+        plateforme_id: { type: [string, 'null'], example: plt_4f2a9c }
+        groupe: { type: string }
+        inscrite_le: { type: [string, 'null'], format: date-time }
+
+    AlerteReseau:
+      type: object
+      required: [id, origine, statut, type, recue_le]
+      properties:
+        id: { type: string, example: alt_9b1e0d7c }
+        origine: { type: string, enum: [locale, reseau] }
+        statut:
+          type: string
+          enum: [publiee, echec, recue]
+          description: "`echec` : serveur central injoignable, republiée à la confirmation suivante"
+        emetteur: { type: [string, 'null'], description: Groupe émetteur }
+        type: { type: string }
+        culture: { type: [string, 'null'] }
+        maladie: { type: [string, 'null'] }
+        libelle: { type: [string, 'null'], description: Nom français de la maladie }
+        gravite: { type: [string, 'null'] }
+        commune: { type: [string, 'null'] }
+        score: { type: [number, 'null'] }
+        recue_le: { type: string, format: date-time }
+
+    PageAlertes:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/AlerteReseau' }
 
     # ---------------------------------------------------------- assistant
     Question:

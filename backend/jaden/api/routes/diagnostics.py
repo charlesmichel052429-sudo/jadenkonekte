@@ -1,5 +1,6 @@
 """Diagnostic d'une photo de feuille de tomate : l'API valide, enregistre puis délègue au service d'inférence."""
 import json
+import logging
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -14,9 +15,11 @@ from .. import schemas as s
 from ..acces import Connexion, clause_membre
 from ..erreurs import Probleme
 from ..pagination import Paginer
+from .. import reseau
 from ..securite import Utilisateur
 
 router = APIRouter(tags=["diagnostics"])
+log = logging.getLogger(__name__)
 SIGNATURES = {b"\xff\xd8\xff": ("image/jpeg", "jpg"), b"\x89PNG\r\n\x1a\n": ("image/png", "png")}
 
 
@@ -32,7 +35,12 @@ def sortie(r) -> dict:
             "classe": r["classe"], "libelle": libelles().get(r["classe"], r["classe"]) if r["classe"] else None,
             "score": r["score"], "fiable": None if r["score"] is None else r["score"] >= p.diagnostic_seuil_fiable,
             "alternatives": r["alternatives"] or [], "modele": r["modele"], "confirme": r["confirme"],
-            "cree_le": r["cree_le"], "termine_le": r["termine_le"]}
+            "cree_le": r["cree_le"], "termine_le": r["termine_le"],
+            "alerte_reseau": {"id": r["alerte_id"], "statut": r["alerte_statut"]} if r.get("alerte_id") else None}
+
+
+SELECT_DIAGNOSTIC = ("SELECT d.*, a.id AS alerte_id, a.statut AS alerte_statut "
+                     "FROM diagnostic d LEFT JOIN alerte a ON a.diagnostic = d.id")
 
 
 def _clause_acces(p_admin: int = 2, p_utilisateur: int = 3) -> str:
@@ -43,7 +51,7 @@ def _clause_acces(p_admin: int = 2, p_utilisateur: int = 3) -> str:
 
 
 async def _lire(con, u, diagnostic_id: int):
-    r = await con.fetchrow(f"SELECT d.* FROM diagnostic d WHERE d.id = $1 AND {_clause_acces()}",
+    r = await con.fetchrow(f"{SELECT_DIAGNOSTIC} WHERE d.id = $1 AND {_clause_acces()}",
                            diagnostic_id, u.admin, u.id)
     if r is None:
         raise Probleme(404, f"Diagnostic {diagnostic_id} introuvable")
@@ -103,7 +111,7 @@ async def lister_diagnostics(u: Utilisateur, con: Connexion, pg: Paginer,
     cond = f"{_clause_acces(1, 2)} AND ($3::int IS NULL OR d.parcelle = $3)"
     args = (u.admin, u.id, parcelle_id)
     total = await con.fetchval(f"SELECT count(*) FROM diagnostic d WHERE {cond}", *args)
-    rows = await con.fetch(f"SELECT d.* FROM diagnostic d WHERE {cond} ORDER BY d.cree_le DESC LIMIT $4 OFFSET $5",
+    rows = await con.fetch(f"{SELECT_DIAGNOSTIC} WHERE {cond} ORDER BY d.cree_le DESC LIMIT $4 OFFSET $5",
                            *args, pg.taille, pg.decalage)
     return pg.enveloppe([sortie(r) for r in rows], total)
 
@@ -115,9 +123,41 @@ async def lire_diagnostic(diagnostic_id: int, u: Utilisateur, con: Connexion):
 
 @router.patch("/diagnostics/{diagnostic_id}", response_model=s.Diagnostic,
               summary="Confirmer ou infirmer un diagnostic (validation humaine)")
-async def modifier_diagnostic(diagnostic_id: int, corps: s.DiagnosticModification, u: Utilisateur, con: Connexion):
+async def modifier_diagnostic(diagnostic_id: int, corps: s.DiagnosticModification, u: Utilisateur, con: Connexion,
+                              request: Request):
     d = await _lire(con, u, diagnostic_id)
     if d["statut"] != "termine":
         raise Probleme(409, "Seul un diagnostic terminé peut être confirmé ou infirmé")
-    return sortie(await con.fetchrow("UPDATE diagnostic SET confirme = $2 WHERE id = $1 RETURNING *",
-                                     diagnostic_id, corps.confirme))
+    await con.execute("UPDATE diagnostic SET confirme = $2 WHERE id = $1", diagnostic_id, corps.confirme)
+    if corps.confirme:
+        await publier_alerte(request, con, await _lire(con, u, diagnostic_id))
+    return sortie(await _lire(con, u, diagnostic_id))
+
+
+async def publier_alerte(request: Request, con, d) -> None:
+    """Bonus réseau régional : un diagnostic CONFIRMÉ, fiable et désignant une maladie devient une alerte.
+    En cas d'échec (serveur central injoignable), l'alerte est gardée « echec » et republiée à la confirmation suivante."""
+    if not reseau.active() or d["alerte_statut"] == "publiee":
+        return
+    inscription = await con.fetchrow("SELECT * FROM reseau_inscription LIMIT 1")
+    if inscription is None:
+        return
+    contexte = None if d["parcelle"] is None else await con.fetchrow(
+        "SELECT p.culture, e.commune, e.lat, e.lon FROM parcelle p JOIN exploitation e ON e.id = p.exploitation "
+        "WHERE p.id = $1", d["parcelle"])
+    alerte = reseau.alerte_depuis_diagnostic(d, contexte)
+    if alerte is None:
+        return
+    try:
+        rep = await reseau.publier(request.app.state.http_reseau, inscription, d["id"], alerte)
+        aid, statut = rep["id"], "publiee"
+    except reseau.ReseauIndisponible as e:
+        log.warning("Alerte du diagnostic %s non publiée : %s", d["id"], e)
+        aid, statut = f"loc-{d['id']}", "echec"
+    async with con.transaction():
+        await con.execute("DELETE FROM alerte WHERE diagnostic = $1", d["id"])
+        await con.execute(
+            "INSERT INTO alerte (id, origine, statut, diagnostic, emetteur, type, culture, maladie, gravite, commune, contenu) "
+            "VALUES ($1, 'locale', $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            aid, statut, d["id"], inscription["groupe"], alerte["type"], alerte["culture"], alerte["maladie"],
+            alerte["gravite"], alerte["commune"], alerte)

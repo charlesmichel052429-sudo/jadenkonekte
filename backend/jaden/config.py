@@ -46,6 +46,14 @@ class Parametres(BaseSettings):
     diagnostic_seuil_fiable: float = 0.7  # fiche 06_protocole_alerte : sous 0,7, reprendre des photos
     classes_fr_fichier: str = "/app/classes_fr.json"
 
+    # Réseau régional d'alertes (bonus) — désactivé si reseau_central_url est vide
+    reseau_central_url: str | None = None
+    reseau_groupe: str = "jaden-konekte"
+    reseau_nom: str = "Jaden Konekté"
+    reseau_membres: str = ""                     # noms séparés par des virgules
+    reseau_url_base: str = "http://api:8000"     # adresse de NOTRE API vue depuis le serveur central
+    reseau_secret: str | None = None             # secret partagé pour signer les webhooks reçus (16 car. min.)
+
     # Assistant agronome (RAG)
     assistant_url: str = "http://assistant:8000"
     fiches_dossier: str = "/app/rag/fiches"

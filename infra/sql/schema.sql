@@ -164,9 +164,12 @@ CREATE TABLE diagnostic (
 CREATE INDEX diagnostic_auteur_idx ON diagnostic (auteur, cree_le DESC);
 CREATE INDEX diagnostic_parcelle_idx ON diagnostic (parcelle, cree_le DESC);
 
+-- Réseau régional d'alertes (bonus) : alertes publiées par la plateforme (locale) ou reçues par webhook (reseau)
 CREATE TABLE alerte (
-  id          VARCHAR(40) PRIMARY KEY,                  -- id du serveur central ou local
-  origine     VARCHAR(20) NOT NULL,                     -- locale, reseau
+  id          VARCHAR(40) PRIMARY KEY,                  -- id du serveur central (alt_…) ; loc-<diagnostic> si non publiée
+  origine     VARCHAR(20) NOT NULL CHECK (origine IN ('locale', 'reseau')),
+  statut      VARCHAR(20) NOT NULL DEFAULT 'recue' CHECK (statut IN ('publiee', 'echec', 'recue')),
+  diagnostic  INT UNIQUE REFERENCES diagnostic(id) ON DELETE SET NULL,   -- un diagnostic confirmé = une alerte
   emetteur    VARCHAR(80),
   type        VARCHAR(20) NOT NULL,
   culture     VARCHAR(30),
@@ -175,6 +178,17 @@ CREATE TABLE alerte (
   commune     VARCHAR(80),
   contenu     JSONB NOT NULL,
   recue_le    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX alerte_recue_idx ON alerte (recue_le DESC);
+
+-- Inscription de la plateforme auprès du serveur central (une seule ligne). Le jeton n'est renvoyé
+-- qu'une fois par le serveur central : il est conservé ici, jamais exposé par l'API.
+CREATE TABLE reseau_inscription (
+  id           VARCHAR(40) PRIMARY KEY,                 -- plt_… attribué par le serveur central
+  central_url  VARCHAR(255) NOT NULL,
+  groupe       VARCHAR(40) NOT NULL,
+  jeton        VARCHAR(255) NOT NULL,
+  inscrite_le  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE historique (

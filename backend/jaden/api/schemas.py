@@ -281,6 +281,35 @@ class Diagnostic(BaseModel):
     confirme: bool | None = None
     cree_le: datetime
     termine_le: datetime | None = None
+    alerte_reseau: "AlerteReseauRef | None" = None
+
+
+class AlerteReseauRef(BaseModel):
+    id: str
+    statut: Literal["publiee", "echec", "recue"]
+
+
+class AlerteReseau(BaseModel):
+    id: str
+    origine: Literal["locale", "reseau"]
+    statut: Literal["publiee", "echec", "recue"]
+    emetteur: str | None = None
+    type: str
+    culture: str | None = None
+    maladie: str | None = None
+    libelle: str | None = None
+    gravite: str | None = None
+    commune: str | None = None
+    score: float | None = None
+    recue_le: datetime
+
+
+class EtatReseau(BaseModel):
+    active: bool
+    inscrite: bool
+    plateforme_id: str | None = None
+    groupe: str
+    inscrite_le: datetime | None = None
 
 
 class DiagnosticModification(Entree):

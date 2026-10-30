@@ -34,6 +34,8 @@ function carteResultat(d, surMaj) {
     try {
       Object.assign(d, await api(`/diagnostics/${d.id}`, { methode: "PATCH", corps: { confirme } }));
       rendreActions();
+      if (d.alerte_reseau?.statut === "publiee") toast("Alerte partagée avec les exploitations du réseau régional.", "succes");
+      else if (d.alerte_reseau?.statut === "echec") toast("Serveur du réseau régional injoignable : l'alerte sera republiée à la prochaine confirmation.", "erreur");
       surMaj?.();
     } catch (e) { toast(e.message, "erreur"); }
   }
