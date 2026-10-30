@@ -97,6 +97,18 @@ services:
       timeout: 5s
       retries: 5
 
+  # ------------------------------------------------------------ interface web (nginx : fichiers statiques + proxy /api)
+  front:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [web]
+    restart: unless-stopped
+
   # ------------------------------------------------------------ simulateur fourni (données SIMULÉES)
   simulateur:
     build: ./simulateur

@@ -16,6 +16,45 @@ TITRES = {
 }
 
 
+MESSAGES_VALIDATION = {
+    "missing": "Champ obligatoire",
+    "extra_forbidden": "Champ non autorisé",
+    "string_too_short": "Au moins {min_length} caractère(s)",
+    "string_too_long": "Au plus {max_length} caractères",
+    "string_pattern_mismatch": "Format invalide",
+    "greater_than_equal": "Doit être supérieur ou égal à {ge}",
+    "less_than_equal": "Doit être inférieur ou égal à {le}",
+    "greater_than": "Doit être supérieur à {gt}",
+    "less_than": "Doit être inférieur à {lt}",
+    "literal_error": "Valeur non autorisée (attendu : {expected})",
+    "enum": "Valeur non autorisée (attendu : {expected})",
+    "int_parsing": "Nombre entier attendu",
+    "int_from_float": "Nombre entier attendu",
+    "float_parsing": "Nombre attendu",
+    "bool_parsing": "Booléen attendu",
+    "datetime_parsing": "Date ISO 8601 attendue (ex. 2026-10-12T06:00:00Z)",
+    "datetime_from_date_parsing": "Date ISO 8601 attendue (ex. 2026-10-12T06:00:00Z)",
+    "json_invalid": "JSON invalide",
+    "model_attributes_type": "Objet JSON attendu",
+}
+
+
+def message_validation(e: dict) -> str:
+    """Traduit les messages Pydantic (anglais) pour l'interface ; le type d'erreur reste stable."""
+    if e["type"] == "value_error":
+        msg = str(e.get("msg", ""))
+        if "email" in msg:
+            return "Adresse de courriel invalide"
+        return msg.removeprefix("Value error, ")
+    modele = MESSAGES_VALIDATION.get(e["type"])
+    if modele is None:
+        return e["msg"]
+    try:
+        return modele.format(**e.get("ctx", {}))
+    except (KeyError, IndexError):
+        return modele
+
+
 class Probleme(Exception):
     """Exception métier convertie en réponse problem+json."""
 
@@ -47,7 +86,8 @@ def installer(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError):
-        erreurs = [{"champ": ".".join(str(x) for x in e["loc"]), "message": e["msg"]} for e in exc.errors()]
+        erreurs = [{"champ": ".".join(str(x) for x in e["loc"]), "message": message_validation(e)}
+                   for e in exc.errors()]
         detail = f"{len(erreurs)} champ(s) invalide(s)"
         return reponse_probleme(request, 422, detail, erreurs=erreurs)
 

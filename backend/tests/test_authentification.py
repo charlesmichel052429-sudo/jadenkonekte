@@ -47,8 +47,9 @@ def test_validation_422_detaille(client):
     r = client.post("/api/v1/utilisateurs", json={"prenom": "", "nom": "B", "courriel": "pas-un-courriel",
                                                    "mot_de_passe": "court"})
     corps = est_probleme(r, 422)
-    champs = {e["champ"] for e in corps["erreurs"]}
-    assert {"body.prenom", "body.courriel", "body.mot_de_passe"} <= champs
+    erreurs = {e["champ"]: e["message"] for e in corps["erreurs"]}
+    assert erreurs == {"body.prenom": "Au moins 1 caractère(s)", "body.courriel": "Adresse de courriel invalide",
+                       "body.mot_de_passe": "Au moins 8 caractère(s)"}
 
 
 def test_champ_inconnu_refuse(client):

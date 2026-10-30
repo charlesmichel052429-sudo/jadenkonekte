@@ -21,6 +21,7 @@ docker compose ps                                  # tous les services « Up »,
 curl.exe http://localhost:8000/api/v1/sante
 ```
 
+- **Application web : <http://localhost:8080>**
 - Documentation interactive de l'API : <http://localhost:8000/docs>
 - Compte administrateur : `ADMIN_COURRIEL` / `ADMIN_MOT_DE_PASSE` dans `.env`
 - L'exploitation **expl-1** (parcelles p1, p2, p3) est créée au premier démarrage et alimentée par le
@@ -34,6 +35,7 @@ curl.exe http://localhost:8000/api/v1/sante
 | `db` | PostgreSQL 16 + TimescaleDB (hypertable `mesure`) + pgvector | donnees |
 | `ingestion` | Abonné MQTT QoS 1 : validation, mesures aberrantes, dédoublonnage, stockage, NOTIFY temps réel | iot, donnees |
 | `api` | FastAPI : JWT, rôles, contrôle d'accès objet, REST + SSE, publication des commandes de vanne | iot, donnees, web |
+| `front` | nginx : interface web (HTML/CSS/JS modules, Chart.js) + proxy `/api` (même origine, CSP stricte) | web |
 | `simulateur` | Simulateur du kit (3 parcelles, vanne commandable, pannes) | iot |
 
 Chaîne d'une mesure : simulateur → `jaden/expl-1/p1/sol/humidite` (QoS 1) → ingestion (validation) →
