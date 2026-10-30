@@ -1,0 +1,20 @@
+# Secrets
+.env
+infra/mosquitto/passwd
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IA : données et modèles volumineux (régénérables par les scripts)
+ia/cnn/donnees/
+ia/cnn/PlantVillage*/
+ia/cnn/*.pt
+ia/cnn/*.onnx
+ia/cnn/*.onnx.data
+
+# Divers
+.vscode/
+*.log

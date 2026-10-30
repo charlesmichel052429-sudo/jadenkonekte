@@ -1,0 +1,1508 @@
+openapi: 3.1.0
+info:
+  title: API Jaden Konekté
+  version: 0.1.0
+  summary: Suivi des parcelles connectées, arrosage, diagnostic des feuilles et assistant agronome.
+  description: |
+    Contrat rédigé **avant** l'implémentation (exigence « contrat d'abord » du sujet).
+    Il sera comparé à la spécification générée par FastAPI (`/openapi.json`) ; les écarts
+    sont listés dans le rapport.
+
+    **Conventions**
+    - Ressources au pluriel, sans verbe, préfixées par `/api/v1`.
+    - Authentification par jeton JWT (`Authorization: Bearer <jeton>`), sauf mention contraire.
+    - Deux rôles : `exploitant` (accède uniquement aux exploitations dont il est membre)
+      et `administrateur` (accède à tout).
+    - Contrôle d'accès au niveau objet : une ressource appartenant à une exploitation dont
+      l'utilisateur n'est pas membre renvoie **404** (et non 403), pour ne pas révéler son existence.
+      Le **403** est réservé aux actions interdites par le rôle (ex. route d'administration).
+    - Les erreurs suivent la RFC 9457 (`application/problem+json`).
+    - Listes paginées : paramètres `page` (à partir de 1) et `taille` ; réponse enveloppée
+      (`elements`, `total`, `page`, `taille`).
+    - Horodatages en ISO 8601 avec fuseau (UTC conseillé).
+  contact:
+    name: Projet Jaden Konekté — M2 IA, Université des Antilles
+servers:
+  - url: http://localhost:8000
+    description: Développement local (docker compose)
+
+security:
+  - jwt: []
+
+tags:
+  - name: authentification
+    description: Inscription, connexion et profil
+  - name: utilisateurs
+    description: Gestion des comptes (administrateur)
+  - name: exploitations
+  - name: parcelles
+  - name: capteurs
+    description: Capteurs et séries temporelles de mesures
+  - name: equipements
+    description: Vannes et commandes (MQTT)
+  - name: regles
+    description: Règles d'arrosage automatique et journal des décisions
+  - name: meteo
+  - name: diagnostics
+    description: Diagnostic des feuilles de tomate (CNN, service dédié)
+  - name: assistant
+    description: Assistant agronome (LLM + RAG)
+  - name: supervision
+
+paths:
+  # ------------------------------------------------------------------ supervision
+  /api/v1/sante:
+    get:
+      tags: [supervision]
+      summary: État de l'API et de ses dépendances
+      operationId: lireSante
+      security: []
+      responses:
+        '200':
+          description: Service opérationnel (les dépendances peuvent être dégradées)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sante' }
+
+  # ------------------------------------------------------------------ authentification
+  /api/v1/utilisateurs:
+    post:
+      tags: [authentification]
+      summary: Inscription d'un nouvel exploitant
+      description: |
+        Crée un compte de rôle `exploitant`. Le rôle `administrateur` ne peut pas être
+        choisi à l'inscription ; il est attribué par un administrateur.
+        Le mot de passe est haché (Argon2 ou bcrypt) et n'est jamais renvoyé.
+      operationId: creerUtilisateur
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UtilisateurCreation' }
+      responses:
+        '201':
+          description: Compte créé
+          headers:
+            Location:
+              description: URL du nouveau compte
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilisateur' }
+        '409': { $ref: '#/components/responses/Conflit' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+    get:
+      tags: [utilisateurs]
+      summary: Lister les utilisateurs (administrateur)
+      operationId: listerUtilisateurs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page d'utilisateurs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageUtilisateurs' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '403': { $ref: '#/components/responses/Interdit' }
+
+  /api/v1/jetons:
+    post:
+      tags: [authentification]
+      summary: Connexion (création d'un jeton d'accès JWT)
+      description: |
+        Le jeton est signé (HS256) et expire après `expire_dans` secondes.
+        Le même message d'erreur est renvoyé si le courriel est inconnu ou si le mot de
+        passe est faux, pour ne pas révéler l'existence d'un compte.
+      operationId: creerJeton
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Identifiants' }
+      responses:
+        '201':
+          description: Jeton délivré
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Jeton' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/utilisateurs/moi:
+    get:
+      tags: [authentification]
+      summary: Profil de l'utilisateur connecté
+      operationId: lireMonProfil
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilisateur' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+
+  /api/v1/utilisateurs/{utilisateur_id}:
+    parameters:
+      - $ref: '#/components/parameters/UtilisateurId'
+    patch:
+      tags: [utilisateurs]
+      summary: Modifier le rôle ou l'activation d'un compte (administrateur)
+      operationId: modifierUtilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UtilisateurModification' }
+      responses:
+        '200':
+          description: Compte modifié
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Utilisateur' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '403': { $ref: '#/components/responses/Interdit' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  # ------------------------------------------------------------------ exploitations
+  /api/v1/exploitations:
+    get:
+      tags: [exploitations]
+      summary: Lister les exploitations accessibles
+      description: Un exploitant ne voit que les exploitations dont il est membre.
+      operationId: listerExploitations
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page d'exploitations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageExploitations' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+    post:
+      tags: [exploitations]
+      summary: Créer une exploitation
+      description: Le créateur en devient automatiquement membre.
+      operationId: creerExploitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExploitationCreation' }
+      responses:
+        '201':
+          description: Exploitation créée
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exploitation' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '409': { $ref: '#/components/responses/Conflit' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/exploitations/{exploitation_id}:
+    parameters:
+      - $ref: '#/components/parameters/ExploitationId'
+    get:
+      tags: [exploitations]
+      summary: Consulter une exploitation
+      operationId: lireExploitation
+      responses:
+        '200':
+          description: Exploitation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exploitation' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    patch:
+      tags: [exploitations]
+      summary: Modifier une exploitation
+      operationId: modifierExploitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExploitationModification' }
+      responses:
+        '200':
+          description: Exploitation modifiée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Exploitation' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+    delete:
+      tags: [exploitations]
+      summary: Supprimer une exploitation (et ses parcelles)
+      operationId: supprimerExploitation
+      responses:
+        '204': { description: Exploitation supprimée }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  # ------------------------------------------------------------------ parcelles
+  /api/v1/parcelles:
+    get:
+      tags: [parcelles]
+      summary: Lister les parcelles accessibles
+      operationId: listerParcelles
+      parameters:
+        - name: exploitation_id
+          in: query
+          description: Filtrer sur une exploitation
+          schema: { type: integer, minimum: 1 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page de parcelles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageParcelles' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+    post:
+      tags: [parcelles]
+      summary: Créer une parcelle dans une exploitation dont on est membre
+      description: |
+        Les quatre capteurs standards (sol/humidite, air/temperature, air/luminosite,
+        pluvio/intensite, avec leurs bornes de plausibilité) et la vanne sont déclarés
+        automatiquement : ils correspondent aux topics MQTT de l'annexe du sujet.
+      operationId: creerParcelle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ParcelleCreation' }
+      responses:
+        '201':
+          description: Parcelle créée
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Parcelle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404':
+          description: Exploitation inexistante ou non accessible
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Probleme' }
+        '409': { $ref: '#/components/responses/Conflit' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/parcelles/{parcelle_id}:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [parcelles]
+      summary: Consulter une parcelle (avec l'état de la vanne et la connexion de l'objet)
+      operationId: lireParcelle
+      responses:
+        '200':
+          description: Parcelle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Parcelle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    patch:
+      tags: [parcelles]
+      summary: Modifier une parcelle
+      operationId: modifierParcelle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ParcelleModification' }
+      responses:
+        '200':
+          description: Parcelle modifiée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Parcelle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+    delete:
+      tags: [parcelles]
+      summary: Supprimer une parcelle
+      operationId: supprimerParcelle
+      responses:
+        '204': { description: Parcelle supprimée }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  # ------------------------------------------------------------------ capteurs et mesures
+  /api/v1/parcelles/{parcelle_id}/capteurs:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [capteurs]
+      summary: Capteurs de la parcelle, dernière mesure valide et état de connexion
+      operationId: listerCapteurs
+      responses:
+        '200':
+          description: Capteurs (une parcelle en compte au plus quelques-uns, liste non paginée)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Capteur' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    post:
+      tags: [capteurs]
+      summary: Déclarer un capteur sur la parcelle
+      operationId: creerCapteur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CapteurCreation' }
+      responses:
+        '201':
+          description: Capteur déclaré
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Capteur' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '409': { $ref: '#/components/responses/Conflit' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/capteurs/{capteur_id}:
+    parameters:
+      - $ref: '#/components/parameters/CapteurId'
+    patch:
+      tags: [capteurs]
+      summary: Modifier les bornes de validation ou désactiver un capteur
+      operationId: modifierCapteur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CapteurModification' }
+      responses:
+        '200':
+          description: Capteur modifié
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Capteur' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/parcelles/{parcelle_id}/mesures:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [capteurs]
+      summary: Mesures brutes de la parcelle (ordre chronologique décroissant)
+      description: |
+        Par défaut, seules les mesures **valides** sont renvoyées : les valeurs aberrantes
+        sont conservées en base (maintenance) mais exclues des graphiques et des règles.
+      operationId: listerMesures
+      parameters:
+        - $ref: '#/components/parameters/Grandeur'
+        - $ref: '#/components/parameters/Debut'
+        - $ref: '#/components/parameters/Fin'
+        - name: inclure_invalides
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Page'
+        - name: taille
+          in: query
+          description: Nombre d'éléments par page
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        '200':
+          description: Page de mesures
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageMesures' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/parcelles/{parcelle_id}/agregats:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [capteurs]
+      summary: Agrégats par intervalle (moyenne, minimum, maximum) pour les graphiques
+      description: |
+        Calculés par TimescaleDB (`time_bucket`) sur les seules mesures valides.
+        Graphique 24 h : `intervalle=15m` ; graphique 7 jours : `intervalle=1h`.
+      operationId: listerAgregats
+      parameters:
+        - name: grandeur
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Grandeur' }
+        - name: intervalle
+          in: query
+          schema:
+            type: string
+            enum: [5m, 15m, 1h, 6h, 1d]
+            default: 1h
+        - $ref: '#/components/parameters/Debut'
+        - $ref: '#/components/parameters/Fin'
+      responses:
+        '200':
+          description: Série agrégée (fenêtre limitée à 31 jours, non paginée)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Agregat' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/parcelles/{parcelle_id}/evenements:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [capteurs]
+      summary: Flux temps réel de la parcelle (Server-Sent Events)
+      description: |
+        Événements `mesure`, `vanne` (changement d'état confirmé par l'objet), `statut`
+        (online / offline) et `decision` (règle d'arrosage).
+        Le navigateur ne pouvant pas ajouter d'en-tête `Authorization` à `EventSource`,
+        le jeton peut être passé dans le paramètre `jeton`.
+      operationId: suivreEvenements
+      parameters:
+        - name: jeton
+          in: query
+          description: Jeton JWT (alternative à l'en-tête Authorization pour EventSource)
+          schema: { type: string }
+      responses:
+        '200':
+          description: Flux SSE (`event:` + `data:` JSON)
+          content:
+            text/event-stream:
+              schema: { type: string }
+              example: |
+                event: mesure
+                data: {"grandeur":"humidite","valeur":31.2,"unite":"%","ts":"2026-10-12T06:00:00Z","valide":true}
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  # ------------------------------------------------------------------ équipements et commandes
+  /api/v1/parcelles/{parcelle_id}/equipements:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [equipements]
+      summary: Équipements (vannes) de la parcelle et leur état confirmé
+      operationId: listerEquipements
+      responses:
+        '200':
+          description: Équipements
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Equipement' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/equipements/{equipement_id}/commandes:
+    parameters:
+      - $ref: '#/components/parameters/EquipementId'
+    post:
+      tags: [equipements]
+      summary: Commander manuellement la vanne
+      description: |
+        La commande est publiée en MQTT (QoS 1) sur `jaden/<expl>/<parcelle>/vanne/cmd`.
+        La réponse est **202** : l'exécution n'est pas encore confirmée. Le statut passe à
+        `confirmee` quand l'objet publie sur `vanne/etat` un `derniere_cmd` égal à l'identifiant,
+        ou à `expiree` sans confirmation dans le délai imparti.
+      operationId: creerCommande
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommandeCreation' }
+      responses:
+        '202':
+          description: Commande envoyée, en attente de confirmation
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Commande' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+        '503': { $ref: '#/components/responses/Indisponible' }
+    get:
+      tags: [equipements]
+      summary: Historique des commandes de l'équipement
+      operationId: listerCommandes
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page de commandes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageCommandes' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/commandes/{commande_id}:
+    parameters:
+      - name: commande_id
+        in: path
+        required: true
+        schema: { type: string, maxLength: 40 }
+    get:
+      tags: [equipements]
+      summary: Suivre une commande (statut de confirmation)
+      operationId: lireCommande
+      responses:
+        '200':
+          description: Commande
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Commande' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  # ------------------------------------------------------------------ règles d'arrosage
+  /api/v1/parcelles/{parcelle_id}/regles:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [regles]
+      summary: Règles d'arrosage de la parcelle
+      operationId: listerRegles
+      responses:
+        '200':
+          description: Règles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Regle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    post:
+      tags: [regles]
+      summary: Créer une règle d'arrosage
+      operationId: creerRegle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegleCreation' }
+      responses:
+        '201':
+          description: Règle créée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Regle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  /api/v1/regles/{regle_id}:
+    parameters:
+      - $ref: '#/components/parameters/RegleId'
+    get:
+      tags: [regles]
+      summary: Consulter une règle
+      operationId: lireRegle
+      responses:
+        '200':
+          description: Règle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Regle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    patch:
+      tags: [regles]
+      summary: Paramétrer une règle (seuil, durée, activation…)
+      operationId: modifierRegle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegleModification' }
+      responses:
+        '200':
+          description: Règle modifiée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Regle' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+    delete:
+      tags: [regles]
+      summary: Supprimer une règle
+      operationId: supprimerRegle
+      responses:
+        '204': { description: Règle supprimée }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/regles/{regle_id}/decisions:
+    parameters:
+      - $ref: '#/components/parameters/RegleId'
+    get:
+      tags: [regles]
+      summary: Journal des évaluations de la règle (déclenchements et abstentions motivées)
+      operationId: listerDecisions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page de décisions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageDecisions' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  # ------------------------------------------------------------------ météo
+  /api/v1/parcelles/{parcelle_id}/previsions:
+    parameters:
+      - $ref: '#/components/parameters/ParcelleId'
+    get:
+      tags: [meteo]
+      summary: Prévisions de pluie (Open-Meteo, mises en cache) aux coordonnées de l'exploitation
+      operationId: lirePrevisions
+      parameters:
+        - name: heures
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 48, default: 12 }
+      responses:
+        '200':
+          description: Prévisions (éventuellement issues du cache si Open-Meteo est indisponible)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Previsions' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '503': { $ref: '#/components/responses/Indisponible' }
+
+  # ------------------------------------------------------------------ diagnostics
+  /api/v1/diagnostics:
+    post:
+      tags: [diagnostics]
+      summary: Diagnostiquer une photo de feuille de tomate
+      description: |
+        L'image est validée (JPEG ou PNG, 5 Mo maximum) puis transmise au service
+        d'inférence ONNX, distinct de l'API. Le résultat est enregistré avec la version du modèle.
+      operationId: creerDiagnostic
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  contentMediaType: application/octet-stream
+                  description: Photo de feuille (image/jpeg ou image/png)
+                parcelle_id:
+                  type: integer
+                  minimum: 1
+            encoding:
+              image:
+                contentType: image/jpeg, image/png
+      responses:
+        '201':
+          description: Diagnostic réalisé
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Diagnostic' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '413': { $ref: '#/components/responses/TropVolumineux' }
+        '415': { $ref: '#/components/responses/TypeNonPris' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+        '503': { $ref: '#/components/responses/Indisponible' }
+    get:
+      tags: [diagnostics]
+      summary: Historique des diagnostics accessibles
+      operationId: listerDiagnostics
+      parameters:
+        - name: parcelle_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Taille'
+      responses:
+        '200':
+          description: Page de diagnostics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageDiagnostics' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+
+  /api/v1/diagnostics/{diagnostic_id}:
+    parameters:
+      - $ref: '#/components/parameters/DiagnosticId'
+    get:
+      tags: [diagnostics]
+      summary: Consulter un diagnostic
+      operationId: lireDiagnostic
+      responses:
+        '200':
+          description: Diagnostic
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Diagnostic' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    patch:
+      tags: [diagnostics]
+      summary: Confirmer ou infirmer un diagnostic (validation humaine)
+      operationId: modifierDiagnostic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirme]
+              properties:
+                confirme: { type: boolean }
+      responses:
+        '200':
+          description: Diagnostic modifié
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Diagnostic' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+  # ------------------------------------------------------------------ assistant
+  /api/v1/questions:
+    post:
+      tags: [assistant]
+      summary: Poser une question à l'assistant agronome (réponse en streaming SSE)
+      description: |
+        Les passages pertinents sont recherchés dans pgvector, puis le LLM rédige une réponse
+        fondée **uniquement** sur ces passages. Ordre des événements :
+        `sources` (passages retenus) → `fragment` (texte, plusieurs fois) → `fin`.
+        Si aucun passage n'est assez proche, l'assistant indique que l'information
+        n'est pas dans les fiches (`hors_corpus: true` dans `fin`).
+        En cas d'erreur pendant le flux : événement `erreur` (Problem Details).
+      operationId: poserQuestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Question' }
+      responses:
+        '200':
+          description: Flux SSE
+          content:
+            text/event-stream:
+              schema: { type: string }
+              example: |
+                event: sources
+                data: [{"source":"02_tomate_maladies.md","section":"Mildiou","score":0.82}]
+
+                event: fragment
+                data: {"texte":"Le mildiou se reconnaît à "}
+
+                event: fin
+                data: {"hors_corpus":false}
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+        '503': { $ref: '#/components/responses/Indisponible' }
+
+  /api/v1/passages:
+    get:
+      tags: [assistant]
+      summary: Recherche sémantique dans le corpus (sans LLM, utile pour l'évaluation)
+      operationId: rechercherPassages
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 3, maxLength: 500 }
+        - name: k
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 5 }
+      responses:
+        '200':
+          description: Passages classés par similarité décroissante
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Passage' }
+        '401': { $ref: '#/components/responses/NonAuthentifie' }
+        '422': { $ref: '#/components/responses/DonneesInvalides' }
+
+# ==================================================================== composants
+components:
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Numéro de page (à partir de 1)
+      schema: { type: integer, minimum: 1, default: 1 }
+    Taille:
+      name: taille
+      in: query
+      description: Nombre d'éléments par page
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    UtilisateurId:
+      name: utilisateur_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    ExploitationId:
+      name: exploitation_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    ParcelleId:
+      name: parcelle_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    CapteurId:
+      name: capteur_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    EquipementId:
+      name: equipement_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    RegleId:
+      name: regle_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    DiagnosticId:
+      name: diagnostic_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    Grandeur:
+      name: grandeur
+      in: query
+      schema: { $ref: '#/components/schemas/Grandeur' }
+    Debut:
+      name: debut
+      in: query
+      description: "Début de la fenêtre (inclus). Défaut : fin − 24 h."
+      schema: { type: string, format: date-time }
+    Fin:
+      name: fin
+      in: query
+      description: "Fin de la fenêtre (exclue). Défaut : maintenant."
+      schema: { type: string, format: date-time }
+
+  responses:
+    NonAuthentifie:
+      description: Jeton absent, invalide ou expiré (ou identifiants incorrects)
+      headers:
+        WWW-Authenticate: { schema: { type: string } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+          example:
+            type: about:blank
+            title: Non authentifié
+            status: 401
+            detail: Jeton expiré
+    Interdit:
+      description: Action interdite pour ce rôle
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+    Introuvable:
+      description: Ressource inexistante ou non accessible à cet utilisateur
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+          example:
+            type: about:blank
+            title: Ressource introuvable
+            status: 404
+            detail: Parcelle 12 introuvable
+            instance: /api/v1/parcelles/12
+    Conflit:
+      description: Conflit avec une ressource existante (ex. courriel ou code déjà utilisé)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+    DonneesInvalides:
+      description: Données invalides (validation Pydantic)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+          example:
+            type: about:blank
+            title: Données invalides
+            status: 422
+            detail: 1 champ invalide
+            erreurs:
+              - champ: body.courriel
+                message: value is not a valid email address
+    TropVolumineux:
+      description: Fichier trop volumineux
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+    TypeNonPris:
+      description: Type de fichier non pris en charge
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+    Indisponible:
+      description: Service dépendant indisponible (broker MQTT, service CNN, LLM, météo sans cache)
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Probleme' }
+
+  schemas:
+    # ---------------------------------------------------------- génériques
+    Probleme:
+      type: object
+      description: Problem Details (RFC 9457)
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, default: about:blank }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        instance: { type: string, format: uri-reference }
+        erreurs:
+          type: array
+          description: Extension — détail des champs invalides (422)
+          items:
+            type: object
+            required: [champ, message]
+            properties:
+              champ: { type: string }
+              message: { type: string }
+
+    Pagination:
+      type: object
+      required: [total, page, taille]
+      properties:
+        total: { type: integer, minimum: 0, description: Nombre total d'éléments }
+        page: { type: integer, minimum: 1 }
+        taille: { type: integer, minimum: 1 }
+
+    Sante:
+      type: object
+      required: [statut]
+      properties:
+        statut: { type: string, enum: [ok, degrade] }
+        version: { type: string }
+        dependances:
+          type: object
+          additionalProperties: { type: string, enum: [ok, indisponible] }
+          example: { base: ok, mqtt: ok, cnn: indisponible, llm: ok }
+
+    # ---------------------------------------------------------- utilisateurs
+    Role:
+      type: string
+      enum: [exploitant, administrateur]
+
+    UtilisateurCreation:
+      type: object
+      required: [prenom, nom, courriel, mot_de_passe]
+      additionalProperties: false
+      properties:
+        prenom: { type: string, minLength: 1, maxLength: 40 }
+        nom: { type: string, minLength: 1, maxLength: 40 }
+        courriel: { type: string, format: email, maxLength: 120 }
+        mot_de_passe: { type: string, format: password, minLength: 8, maxLength: 128, writeOnly: true }
+
+    UtilisateurModification:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        actif: { type: boolean }
+
+    Utilisateur:
+      type: object
+      required: [id, prenom, nom, courriel, role, actif, cree_le]
+      properties:
+        id: { type: integer, readOnly: true }
+        prenom: { type: string }
+        nom: { type: string }
+        courriel: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        actif: { type: boolean }
+        cree_le: { type: string, format: date-time, readOnly: true }
+
+    Identifiants:
+      type: object
+      required: [courriel, mot_de_passe]
+      additionalProperties: false
+      properties:
+        courriel: { type: string, format: email }
+        mot_de_passe: { type: string, format: password, writeOnly: true }
+
+    Jeton:
+      type: object
+      required: [jeton_acces, type_jeton, expire_dans]
+      properties:
+        jeton_acces: { type: string, description: JWT signé }
+        type_jeton: { type: string, const: Bearer }
+        expire_dans: { type: integer, description: Durée de validité en secondes, example: 3600 }
+
+    PageUtilisateurs:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Utilisateur' }
+
+    # ---------------------------------------------------------- exploitations / parcelles
+    CodeMqtt:
+      type: string
+      description: Identifiant utilisé dans les topics MQTT (minuscules, chiffres, tirets)
+      pattern: '^[a-z0-9][a-z0-9-]{0,29}$'
+
+    ExploitationCreation:
+      type: object
+      required: [code, nom, commune]
+      additionalProperties: false
+      properties:
+        code: { $ref: '#/components/schemas/CodeMqtt' }
+        nom: { type: string, minLength: 1, maxLength: 80 }
+        commune: { type: string, minLength: 1, maxLength: 80 }
+        lat: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        lon: { type: [number, 'null'], minimum: -180, maximum: 180 }
+
+    ExploitationModification:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        nom: { type: string, minLength: 1, maxLength: 80 }
+        commune: { type: string, minLength: 1, maxLength: 80 }
+        lat: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        lon: { type: [number, 'null'], minimum: -180, maximum: 180 }
+
+    Exploitation:
+      type: object
+      required: [id, code, nom, commune]
+      properties:
+        id: { type: integer, readOnly: true }
+        code: { $ref: '#/components/schemas/CodeMqtt' }
+        nom: { type: string }
+        commune: { type: string }
+        lat: { type: [number, 'null'] }
+        lon: { type: [number, 'null'] }
+
+    PageExploitations:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Exploitation' }
+
+    Culture:
+      type: string
+      enum: [tomate, igname, christophine, banane, piment, laitue, autre]
+
+    ParcelleCreation:
+      type: object
+      required: [exploitation_id, code, nom, culture]
+      additionalProperties: false
+      properties:
+        exploitation_id: { type: integer, minimum: 1 }
+        code: { $ref: '#/components/schemas/CodeMqtt' }
+        nom: { type: string, minLength: 1, maxLength: 80 }
+        culture: { $ref: '#/components/schemas/Culture' }
+        surface_m2: { type: [number, 'null'], exclusiveMinimum: 0 }
+
+    ParcelleModification:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        nom: { type: string, minLength: 1, maxLength: 80 }
+        culture: { $ref: '#/components/schemas/Culture' }
+        surface_m2: { type: [number, 'null'], exclusiveMinimum: 0 }
+
+    Parcelle:
+      type: object
+      required: [id, exploitation_id, code, nom, culture, en_ligne]
+      properties:
+        id: { type: integer, readOnly: true }
+        exploitation_id: { type: integer }
+        code: { $ref: '#/components/schemas/CodeMqtt' }
+        nom: { type: string }
+        culture: { $ref: '#/components/schemas/Culture' }
+        surface_m2: { type: [number, 'null'] }
+        topic_mqtt:
+          type: string
+          readOnly: true
+          example: jaden/expl-1/p1
+        en_ligne:
+          type: boolean
+          readOnly: true
+          description: Dernier statut MQTT retenu (`online` / `offline`)
+        statut_depuis: { type: [string, 'null'], format: date-time, readOnly: true }
+
+    PageParcelles:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Parcelle' }
+
+    # ---------------------------------------------------------- capteurs / mesures
+    TypeCapteur:
+      type: string
+      enum: [sol, air, pluvio]
+
+    Grandeur:
+      type: string
+      enum: [humidite, temperature, luminosite, intensite]
+
+    CapteurCreation:
+      type: object
+      required: [type, grandeur, unite]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/TypeCapteur' }
+        grandeur: { $ref: '#/components/schemas/Grandeur' }
+        unite: { type: string, enum: ['%', '°C', lx, mm/h] }
+        min_valide: { type: [number, 'null'], description: Borne basse de plausibilité }
+        max_valide: { type: [number, 'null'], description: Borne haute de plausibilité }
+
+    CapteurModification:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        min_valide: { type: [number, 'null'] }
+        max_valide: { type: [number, 'null'] }
+        actif: { type: boolean }
+
+    Capteur:
+      type: object
+      required: [id, parcelle_id, type, grandeur, unite, actif, en_ligne]
+      properties:
+        id: { type: integer, readOnly: true }
+        parcelle_id: { type: integer }
+        type: { $ref: '#/components/schemas/TypeCapteur' }
+        grandeur: { $ref: '#/components/schemas/Grandeur' }
+        unite: { type: string }
+        min_valide: { type: [number, 'null'] }
+        max_valide: { type: [number, 'null'] }
+        actif: { type: boolean }
+        en_ligne:
+          type: boolean
+          readOnly: true
+          description: Une mesure a été reçue récemment (délai paramétrable côté serveur)
+        derniere_mesure:
+          oneOf:
+            - $ref: '#/components/schemas/Mesure'
+            - type: 'null'
+
+    Mesure:
+      type: object
+      required: [ts, capteur_id, grandeur, valeur, unite, valide]
+      properties:
+        ts: { type: string, format: date-time }
+        capteur_id: { type: integer }
+        grandeur: { $ref: '#/components/schemas/Grandeur' }
+        valeur: { type: number }
+        unite: { type: string }
+        valide:
+          type: boolean
+          description: false si la valeur a été jugée aberrante à l'ingestion
+        motif_invalide:
+          type: [string, 'null']
+          example: hors_bornes
+
+    PageMesures:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Mesure' }
+
+    Agregat:
+      type: object
+      required: [debut, moyenne, minimum, maximum, nombre]
+      properties:
+        debut: { type: string, format: date-time, description: Début de l'intervalle }
+        moyenne: { type: number }
+        minimum: { type: number }
+        maximum: { type: number }
+        nombre: { type: integer, description: Nombre de mesures valides agrégées }
+
+    # ---------------------------------------------------------- équipements / commandes
+    Equipement:
+      type: object
+      required: [id, parcelle_id, type, etat]
+      properties:
+        id: { type: integer, readOnly: true }
+        parcelle_id: { type: integer }
+        type: { type: string, enum: [vanne] }
+        etat:
+          type: string
+          enum: [ouverte, fermee, inconnu]
+          description: Dernier état **publié par l'objet** (topic vanne/etat), pas l'état demandé
+        ouverte_jusqua: { type: [string, 'null'], format: date-time }
+        derniere_commande_id: { type: [string, 'null'] }
+        maj_le: { type: [string, 'null'], format: date-time }
+
+    CommandeCreation:
+      type: object
+      required: [action]
+      additionalProperties: false
+      properties:
+        action: { type: string, enum: [ouvrir, fermer] }
+        duree_s:
+          type: integer
+          minimum: 10
+          maximum: 3600
+          description: Obligatoire pour `ouvrir`, ignoré pour `fermer`
+      if:
+        properties: { action: { const: ouvrir } }
+      then:
+        required: [duree_s]
+
+    Commande:
+      type: object
+      required: [id, equipement_id, action, origine, statut, cree_le]
+      properties:
+        id: { type: string, example: cmd-42, description: Identifiant transmis dans le message MQTT }
+        equipement_id: { type: integer }
+        action: { type: string, enum: [ouvrir, fermer] }
+        duree_s: { type: [integer, 'null'] }
+        origine: { type: string, enum: [manuelle, regle, agent] }
+        auteur_id: { type: [integer, 'null'] }
+        statut: { type: string, enum: [envoyee, confirmee, expiree, echec] }
+        cree_le: { type: string, format: date-time }
+        confirmee_le: { type: [string, 'null'], format: date-time }
+
+    PageCommandes:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Commande' }
+
+    # ---------------------------------------------------------- règles
+    RegleCreation:
+      type: object
+      required: [nom, seuil_humidite, duree_s]
+      additionalProperties: false
+      properties:
+        nom: { type: string, minLength: 1, maxLength: 80 }
+        seuil_humidite:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Arrosage si l'humidité du sol (moyenne récente des mesures valides) est en dessous (%)
+        pluie_max_mm:
+          type: number
+          minimum: 0
+          default: 2
+          description: Arrosage seulement si le cumul de pluie prévu est inférieur (mm)
+        horizon_h:
+          type: integer
+          minimum: 1
+          maximum: 48
+          default: 6
+          description: Fenêtre des prévisions prise en compte (heures)
+        duree_s: { type: integer, minimum: 10, maximum: 3600 }
+        delai_min_s:
+          type: integer
+          minimum: 0
+          default: 3600
+          description: Délai minimal entre deux arrosages déclenchés par la règle
+        active: { type: boolean, default: true }
+
+    RegleModification:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        nom: { type: string, minLength: 1, maxLength: 80 }
+        seuil_humidite: { type: number, minimum: 0, maximum: 100 }
+        pluie_max_mm: { type: number, minimum: 0 }
+        horizon_h: { type: integer, minimum: 1, maximum: 48 }
+        duree_s: { type: integer, minimum: 10, maximum: 3600 }
+        delai_min_s: { type: integer, minimum: 0 }
+        active: { type: boolean }
+
+    Regle:
+      type: object
+      required: [id, parcelle_id, nom, seuil_humidite, pluie_max_mm, horizon_h, duree_s, delai_min_s, active]
+      properties:
+        id: { type: integer, readOnly: true }
+        parcelle_id: { type: integer }
+        nom: { type: string }
+        seuil_humidite: { type: number }
+        pluie_max_mm: { type: number }
+        horizon_h: { type: integer }
+        duree_s: { type: integer }
+        delai_min_s: { type: integer }
+        active: { type: boolean }
+        derniere_execution: { type: [string, 'null'], format: date-time, readOnly: true }
+
+    Decision:
+      type: object
+      required: [id, regle_id, ts, declenche, motif]
+      properties:
+        id: { type: integer }
+        regle_id: { type: integer }
+        ts: { type: string, format: date-time }
+        declenche: { type: boolean }
+        motif:
+          type: string
+          enum: [arrosage, sol_humide, pluie_prevue, delai_non_ecoule, mesures_insuffisantes, meteo_indisponible, regle_inactive]
+        humidite: { type: [number, 'null'] }
+        pluie_prevue_mm: { type: [number, 'null'] }
+        source_meteo: { type: [string, 'null'], enum: [api, cache, null] }
+        commande_id: { type: [string, 'null'] }
+
+    PageDecisions:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Decision' }
+
+    # ---------------------------------------------------------- météo
+    Previsions:
+      type: object
+      required: [lat, lon, source, obtenues_le, heures]
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+        source:
+          type: string
+          enum: [api, cache]
+          description: "`cache` : Open-Meteo injoignable, dernières prévisions connues"
+        obtenues_le: { type: string, format: date-time }
+        cumul_pluie_mm: { type: number }
+        heures:
+          type: array
+          items:
+            type: object
+            required: [ts, pluie_mm]
+            properties:
+              ts: { type: string, format: date-time }
+              pluie_mm: { type: number }
+              probabilite_pluie: { type: [integer, 'null'], minimum: 0, maximum: 100 }
+
+    # ---------------------------------------------------------- diagnostics
+    Diagnostic:
+      type: object
+      required: [id, statut, cree_le]
+      properties:
+        id: { type: integer, readOnly: true }
+        parcelle_id: { type: [integer, 'null'] }
+        auteur_id: { type: [integer, 'null'] }
+        statut: { type: string, enum: [en_cours, termine, echec] }
+        classe: { type: [string, 'null'], example: Tomato___Late_blight }
+        libelle: { type: [string, 'null'], example: Mildiou, description: Libellé français }
+        score: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        fiable:
+          type: [boolean, 'null']
+          description: false si le score est sous le seuil de confiance (confirmation humaine conseillée)
+        alternatives:
+          type: array
+          description: Classes suivantes les plus probables
+          items:
+            type: object
+            properties:
+              classe: { type: string }
+              libelle: { type: string }
+              score: { type: number }
+        modele: { type: [string, 'null'], example: mobilenetv3-small-2026-11-05 }
+        confirme: { type: [boolean, 'null'] }
+        cree_le: { type: string, format: date-time }
+        termine_le: { type: [string, 'null'], format: date-time }
+
+    PageDiagnostics:
+      allOf:
+        - $ref: '#/components/schemas/Pagination'
+        - type: object
+          required: [elements]
+          properties:
+            elements:
+              type: array
+              items: { $ref: '#/components/schemas/Diagnostic' }
+
+    # ---------------------------------------------------------- assistant
+    Question:
+      type: object
+      required: [question]
+      additionalProperties: false
+      properties:
+        question: { type: string, minLength: 3, maxLength: 1000 }
+        parcelle_id:
+          type: integer
+          minimum: 1
+          description: Contexte facultatif (culture de la parcelle)
+
+    Passage:
+      type: object
+      required: [id, source, contenu, score]
+      properties:
+        id: { type: integer }
+        source: { type: string, example: 02_tomate_maladies.md }
+        section: { type: [string, 'null'], example: Mildiou }
+        contenu: { type: string }
+        score: { type: number, description: Similarité cosinus (1 = identique) }

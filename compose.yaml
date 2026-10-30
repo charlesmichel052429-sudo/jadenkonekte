@@ -1,0 +1,121 @@
+# Plateforme Jaden Konekté — démarrage complet :  docker compose up -d --build
+# Les secrets viennent du fichier .env (voir .env.exemple), jamais du dépôt.
+name: jaden-konekte
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  image: jaden-konekte/backend:dev
+  restart: unless-stopped
+  environment: &backend-env
+    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    MQTT_HOTE: mqtt
+    MQTT_PORT: 1883
+    LOG_NIVEAU: ${LOG_NIVEAU:-INFO}
+
+services:
+  # ------------------------------------------------------------ broker MQTT (authentification + ACL)
+  mqtt:
+    image: eclipse-mosquitto:2
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    environment:
+      MQTT_INGESTION_MOT_DE_PASSE: ${MQTT_INGESTION_MOT_DE_PASSE:?définir dans .env}
+      MQTT_API_MOT_DE_PASSE: ${MQTT_API_MOT_DE_PASSE:?définir dans .env}
+      MQTT_REGLES_MOT_DE_PASSE: ${MQTT_REGLES_MOT_DE_PASSE:?définir dans .env}
+      MQTT_SIMULATEUR_MOT_DE_PASSE: ${MQTT_SIMULATEUR_MOT_DE_PASSE:?définir dans .env}
+    ports:
+      - "1883:1883"              # objets connectés (ESP32 / simulateur hors Docker)
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infra/mosquitto/acl:/mosquitto/config/acl:ro
+      - ./infra/mosquitto/entrypoint.sh:/mosquitto/config/entrypoint.sh:ro
+      - mqtt-data:/mosquitto/data
+    networks: [iot]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u ingestion -P \"$$MQTT_INGESTION_MOT_DE_PASSE\" -t '$$SYS/broker/uptime' -C 1 -W 3 > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------ PostgreSQL 16 + TimescaleDB + pgvector
+  db:
+    image: timescale/timescaledb-ha:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?définir dans .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:?définir dans .env}
+    ports:
+      - "127.0.0.1:5432:5432"    # accessible depuis le PC uniquement (outils, pgAdmin)
+    volumes:
+      - ./infra/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - db-data:/home/postgres/pgdata/data
+    networks: [donnees]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ------------------------------------------------------------ ingestion MQTT -> TimescaleDB
+  ingestion:
+    <<: *backend
+    command: ["python", "-m", "jaden.ingestion"]
+    environment:
+      <<: *backend-env
+      MQTT_UTILISATEUR: ingestion
+      MQTT_MOT_DE_PASSE: ${MQTT_INGESTION_MOT_DE_PASSE}
+    depends_on:
+      db: { condition: service_healthy }
+      mqtt: { condition: service_healthy }
+    networks: [iot, donnees]
+
+  # ------------------------------------------------------------ API REST
+  api:
+    <<: *backend
+    command: ["uvicorn", "jaden.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+    environment:
+      <<: *backend-env
+      MQTT_UTILISATEUR: api
+      MQTT_MOT_DE_PASSE: ${MQTT_API_MOT_DE_PASSE}
+      JWT_SECRET: ${JWT_SECRET:?définir dans .env}
+      JWT_DUREE_S: ${JWT_DUREE_S:-3600}
+      ADMIN_COURRIEL: ${ADMIN_COURRIEL:-}
+      ADMIN_MOT_DE_PASSE: ${ADMIN_MOT_DE_PASSE:-}
+      DEMO_INITIALISER: ${DEMO_INITIALISER:-true}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db: { condition: service_healthy }
+      mqtt: { condition: service_healthy }
+    networks: [iot, donnees, web]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/sante', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------ simulateur fourni (données SIMULÉES)
+  simulateur:
+    build: ./simulateur
+    command: ["python", "simulateur_capteurs.py", "--broker", "mqtt",
+              "--user", "simulateur", "--password", "${MQTT_SIMULATEUR_MOT_DE_PASSE}",
+              "--exploitation", "expl-1", "--parcelles", "p1", "p2", "p3",
+              "--acceleration", "1", "--periode", "10"]
+    environment:
+      PYTHONUNBUFFERED: "1"      # journaux visibles immédiatement (docker compose logs simulateur)
+    depends_on:
+      mqtt: { condition: service_healthy }
+    networks: [iot]              # aucun accès à la base : il ne parle qu'au broker
+    restart: unless-stopped
+
+networks:
+  iot:        # objets, broker, services qui parlent MQTT
+  donnees:    # base de données, jamais exposée aux objets
+  web:        # API (et plus tard le front)
+
+volumes:
+  mqtt-data:
+  db-data:
