@@ -55,7 +55,13 @@ class Classifieur:
                 raise ModeleIndisponible(f"{len(classes)} classes déclarées mais le modèle en produit {sortie}")
             libelles_f = self.dossier / FICHIER_LIBELLES
             self.libelles = json.loads(libelles_f.read_text(encoding="utf-8")) if libelles_f.exists() else {}
-            empreinte = hashlib.sha256(chemin.read_bytes()).hexdigest()[:8]
+            # Les exports récents rangent les poids dans un fichier séparé (.onnx.data) : on les inclut dans
+            # l'empreinte, sinon deux entraînements de même architecture auraient la même version.
+            h = hashlib.sha256(chemin.read_bytes())
+            poids = chemin.with_name(chemin.name + ".data")
+            if poids.exists():
+                h.update(poids.read_bytes())
+            empreinte = h.hexdigest()[:8]
             date = datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%d")
             self.session, self.classes, self._signature = session, classes, signature
             self.version = f"mobilenetv3-small-{date}-{empreinte}"
