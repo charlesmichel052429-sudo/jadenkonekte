@@ -71,7 +71,7 @@ async def recevoir_alerte(request: Request, con: Connexion,
     p = parametres()
     if not p.reseau_secret:
         raise Probleme(503, "Réseau régional non configuré")
-    corps = await request.body()                     # corps BRUT : la signature porte sur ces octets exacts
+    corps = await request.body()                     # corps brut : la signature porte sur ces octets exacts
     if len(corps) > TAILLE_MAX_WEBHOOK:
         raise Probleme(413, "Alerte trop volumineuse")
     if not reseau.signature_valide(p.reseau_secret, corps, x_jaden_signature):

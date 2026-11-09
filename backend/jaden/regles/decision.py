@@ -1,7 +1,7 @@
 """Décision d'arrosage — fonctions pures (sans base, réseau ni horloge), testées unitairement.
 
 Ordre des contrôles, du moins coûteux au plus coûteux (la météo n'est consultée qu'en dernier) :
-  1. assez de mesures VALIDES récentes ?   sinon « mesures_insuffisantes » (capteur en panne / hors ligne)
+  1. assez de mesures valides récentes ?   sinon « mesures_insuffisantes » (capteur en panne / hors ligne)
   2. humidité moyenne sous le seuil ?      sinon « sol_humide »
   3. vanne déjà ouverte ?                  sinon on n'empile pas les commandes : « vanne_ouverte »
   4. délai minimal écoulé ?                sinon « delai_non_ecoule »

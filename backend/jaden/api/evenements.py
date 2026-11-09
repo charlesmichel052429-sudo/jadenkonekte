@@ -1,8 +1,8 @@
 """Temps réel : l'ingestion publie des NOTIFY PostgreSQL, l'API les relaie aux navigateurs en SSE.
 
-Pourquoi LISTEN/NOTIFY plutôt qu'un second abonnement MQTT dans l'API ? L'événement n'est diffusé
-qu'APRÈS validation et enregistrement : le tableau de bord n'affiche jamais une valeur que la base
-aurait refusée, et l'API n'a pas besoin de droits de lecture sur le broker.
+LISTEN/NOTIFY plutôt qu'un second abonnement MQTT dans l'API : l'événement n'est diffusé qu'après
+validation et enregistrement, donc le tableau de bord n'affiche jamais une valeur refusée par la base,
+et l'API n'a pas besoin de droits de lecture sur le broker.
 """
 import asyncio
 import json

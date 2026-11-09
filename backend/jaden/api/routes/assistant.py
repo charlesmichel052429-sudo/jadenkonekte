@@ -29,7 +29,7 @@ async def poser_question(corps: s.Question, u: Utilisateur, con: Connexion, requ
     client: httpx.AsyncClient = request.app.state.http_assistant
     requete = client.build_request("POST", f"{parametres().assistant_url}/questions",
                                    json={"question": corps.question, "culture": culture})
-    # Connexion ouverte AVANT de répondre : si l'assistant est arrêté, le client reçoit un vrai 503
+    # Connexion ouverte avant de répondre : si l'assistant est arrêté, le client reçoit un vrai 503
     try:
         reponse = await client.send(requete, stream=True)
     except httpx.HTTPError:

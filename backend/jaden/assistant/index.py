@@ -53,7 +53,7 @@ async def indexer(pool, plongeur, dossier: Path) -> int:
 
 
 def requete_plein_texte(question: str) -> str | None:
-    """Mots de la question reliés par OU pour to_tsquery. Seules les lettres sont gardées : aucun opérateur
+    """Mots de la question reliés par « ou » (|) pour to_tsquery. Seules les lettres sont gardées : aucun opérateur
     tsquery (&, |, !, :) ne peut venir de l'utilisateur. Les mots vides (« les », « pour »…) sont ignorés par
     la configuration 'french'."""
     termes = re.findall(r"[^\W\d_]{3,}", question.lower())

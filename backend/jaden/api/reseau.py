@@ -1,6 +1,6 @@
 """Réseau régional d'alertes (bonus) — client du serveur central (contrats/reseau-regional.openapi.yaml).
 
-Règle (fiche 06_protocole_alerte) : une alerte n'est publiée qu'après CONFIRMATION du diagnostic par
+Règle (fiche 06_protocole_alerte) : une alerte n'est publiée qu'après confirmation du diagnostic par
 l'exploitant, et seulement si le diagnostic est fiable (score >= seuil) et désigne une maladie.
 """
 import hashlib
@@ -28,7 +28,7 @@ def active() -> bool:
 
 
 def signature_valide(secret: str, corps: bytes, signature: str | None) -> bool:
-    """HMAC-SHA256 du corps BRUT, comparé en temps constant (pas de fuite par le temps de réponse)."""
+    """HMAC-SHA256 du corps brut, comparé en temps constant (pas de fuite par le temps de réponse)."""
     if not signature:
         return False
     attendu = "sha256=" + hmac.new(secret.encode(), corps, hashlib.sha256).hexdigest()

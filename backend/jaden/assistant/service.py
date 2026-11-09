@@ -69,7 +69,7 @@ async def repondre(app, question: str, culture: str | None):
     """Générateur d'événements SSE ; utilisé par la route et par le script d'évaluation."""
     p, debut = app.state.p, time.monotonic()
     trouves = await rechercher(app.state.pool, app.state.plongeur, question, p.rag_k)
-    # Un passage est retenu s'il est sémantiquement proche OU s'il partage des mots avec la question
+    # Un passage est retenu s'il est sémantiquement proche ou s'il partage des mots avec la question
     retenus = [x for x in trouves if x["score"] >= p.rag_seuil or x.get("lexical")]
     yield sse("sources", [{"numero": i, "source": x["source"], "section": x["section"], "score": round(x["score"], 3),
                            "extrait": x["contenu"].split("\n", 1)[-1][:280]} for i, x in enumerate(retenus, start=1)])

@@ -25,7 +25,7 @@ def test_mesures_aberrantes_exclues_par_defaut(client, alice, parcelle_alice):
     assert r["total"] == 7
     aberrante = [m for m in r["elements"] if not m["valide"]][0]
     assert aberrante["valeur"] == 999.0 and aberrante["motif_invalide"] == "hors_bornes"
-    # la dernière mesure affichée sur la carte du capteur est la dernière VALIDE
+    # la dernière mesure affichée sur la carte du capteur est la dernière valide
     capteur = [c for c in client.get(f"/api/v1/parcelles/{p['id']}/capteurs", headers=alice["h"]).json()
                if c["id"] == cid][0]
     assert capteur["derniere_mesure"]["valeur"] == 35.0

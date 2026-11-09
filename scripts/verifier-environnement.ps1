@@ -55,7 +55,7 @@ foreach ($port in 1883, 9001, 5432, 8000) {
     }
 }
 Verifier "Fichier .env" {
-    if (-not (Test-Path (Join-Path $racine ".env"))) { throw "absent (sera créé à l'étape Docker, depuis .env.exemple)" }
+    if (-not (Test-Path (Join-Path $racine ".env"))) { throw "absent : lancer scripts\initialiser-env.ps1" }
     "présent"
 }
 

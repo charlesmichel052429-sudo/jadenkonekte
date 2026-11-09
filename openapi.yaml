@@ -4,9 +4,8 @@ info:
   version: 0.1.0
   summary: Suivi des parcelles connectées, arrosage, diagnostic des feuilles et assistant agronome.
   description: |
-    Contrat rédigé **avant** l'implémentation (exigence « contrat d'abord » du sujet).
-    Il sera comparé à la spécification générée par FastAPI (`/openapi.json`) ; les écarts
-    sont listés dans le rapport.
+    Contrat rédigé avant l'implémentation ; un test automatisé vérifie que la spécification
+    générée par FastAPI (`/openapi.json`) le respecte.
 
     **Conventions**
     - Ressources au pluriel, sans verbe, préfixées par `/api/v1`.
@@ -17,7 +16,7 @@ info:
       l'utilisateur n'est pas membre renvoie **404** (et non 403), pour ne pas révéler son existence.
       Le **403** est réservé aux actions interdites par le rôle (ex. route d'administration).
     - Les erreurs suivent la RFC 9457 (`application/problem+json`).
-    - Listes paginées : paramètres `page` (à partir de 1) et `taille` ; réponse enveloppée
+    - Listes paginées : paramètres `page` et `taille` ; réponse enveloppée
       (`elements`, `total`, `page`, `taille`).
     - Horodatages en ISO 8601 avec fuseau (UTC conseillé).
   contact:
@@ -277,7 +276,7 @@ paths:
       description: |
         Les quatre capteurs standards (sol/humidite, air/temperature, air/luminosite,
         pluvio/intensite, avec leurs bornes de plausibilité) et la vanne sont déclarés
-        automatiquement : ils correspondent aux topics MQTT de l'annexe du sujet.
+        automatiquement : ils correspondent aux topics MQTT des objets.
       operationId: creerParcelle
       requestBody:
         required: true

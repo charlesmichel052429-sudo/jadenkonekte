@@ -1,4 +1,4 @@
-"""Tests sur une base PostgreSQL/TimescaleDB RÉELLE et jetable (jaden_test), recréée depuis schema.sql.
+"""Tests sur une base PostgreSQL/TimescaleDB réelle et jetable (jaden_test), recréée depuis schema.sql.
 
     docker compose run --rm api pytest
 """

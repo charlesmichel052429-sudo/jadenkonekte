@@ -52,7 +52,7 @@ def test_parametres_de_chemin_et_de_requete():
 
 
 def test_rapport_des_routes_restant_a_implementer(capsys):
-    """Informatif : routes du contrat pas encore implémentées (étapes suivantes)."""
+    """Informatif : routes du contrat pas encore implémentées."""
     restantes = sorted(set(operations(CONTRAT)) - set(operations(app.openapi())))
     with capsys.disabled():
         print(f"\n[contrat] {len(restantes)} opération(s) restant à implémenter : {restantes}")

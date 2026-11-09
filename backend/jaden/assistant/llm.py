@@ -73,7 +73,7 @@ class Ollama:
 
 
 class ReessaiPossible(Exception):
-    """Échec passager AVANT le premier mot (quota, coupure réseau) : la requête peut être rejouée."""
+    """Échec passager avant le premier mot (quota, coupure réseau) : la requête peut être rejouée."""
 
     def __init__(self, attente: float, motif: str):
         super().__init__(motif)

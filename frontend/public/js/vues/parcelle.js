@@ -89,7 +89,7 @@ function panneauVanne(equipement) {
   if (!equipement) return { noeud: el("section", { class: "carte" }, el("p", { class: "muted" }, "Aucune vanne déclarée.")), maj() {} };
   let eq = { ...equipement };
   let attente = null;                                   // commande envoyée, en attente de confirmation
-  // La confirmation SSE peut arriver AVANT la réponse du POST (vanne plus rapide que l'aller-retour HTTP)
+  // La confirmation SSE peut arriver avant la réponse du POST (vanne plus rapide que l'aller-retour HTTP)
   const confirmeesEnAvance = new Set();
   const etat = el("div", { class: "etat-vanne" });
   const suivi = el("p", { class: "suivi-commande", role: "status" });

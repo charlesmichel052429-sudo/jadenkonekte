@@ -1,7 +1,7 @@
 -- Système d'information — Jaden Konekté
--- PostgreSQL 16 + TimescaleDB + pgvector (chargé automatiquement au PREMIER démarrage du volume db-data).
--- Dérivé du schéma indicatif du kit ; écarts justifiés dans le rapport :
---   * rôle GLOBAL exploitant / administrateur sur utilisateur (exigence du sujet) ; membre = appartenance ;
+-- PostgreSQL 16 + TimescaleDB + pgvector (chargé automatiquement au premier démarrage du volume db-data).
+-- Dérivé du schéma indicatif fourni. Principales modifications :
+--   * rôle global exploitant / administrateur sur utilisateur ; membre = appartenance ;
 --   * contraintes d'unicité nécessaires pour associer un topic MQTT à un capteur / une vanne ;
 --   * règles d'arrosage en colonnes typées (seuil, pluie, durée, délai) + journal des décisions ;
 --   * motif d'invalidité des mesures, état de connexion des parcelles, cache météo.
@@ -109,7 +109,7 @@ CREATE TABLE commande (
 CREATE INDEX commande_equipement_idx ON commande (equipement, cree_le DESC);
 CREATE INDEX commande_en_attente_idx ON commande (cree_le) WHERE statut = 'envoyee';
 
--- Règle d'arrosage : « humidité < seuil ET pluie prévue < pluie_max_mm sur horizon_h » -> ouvrir duree_s
+-- Règle d'arrosage : « humidité < seuil et pluie prévue < pluie_max_mm sur horizon_h » -> ouvrir duree_s
 CREATE TABLE regle (
   id                  SERIAL PRIMARY KEY,
   parcelle            INT NOT NULL REFERENCES parcelle(id) ON DELETE CASCADE,

@@ -179,7 +179,7 @@ services:
     restart: unless-stopped
     profiles: ["ollama"]
 
-  # ------------------------------------------------------------ serveur central du réseau régional (kit), pour tester en local
+  # ------------------------------------------------------------ serveur central du réseau régional, pour tester en local
   serveur-central:
     build: ./serveur-central
     ports:
@@ -201,7 +201,7 @@ services:
     networks: [web]
     restart: unless-stopped
 
-  # ------------------------------------------------------------ simulateur fourni (données SIMULÉES)
+  # ------------------------------------------------------------ simulateur (données simulées)
   simulateur:
     build: ./simulateur
     command: ["python", "simulateur_capteurs.py", "--broker", "mqtt",

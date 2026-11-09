@@ -97,7 +97,7 @@ def _proches(m: MesureLue, ref: tuple[datetime, float], ecart_max: float, fenetr
 
 def juger(m: MesureLue, regles: ReglesCapteur, precedente: tuple[datetime, float] | None,
           fenetre_saut_s: int, saut_precedent: tuple[datetime, float] | None = None) -> Verdict:
-    """precedente : dernière mesure VALIDE ; saut_precedent : dernière mesure si elle a été marquée « saut »."""
+    """precedente : dernière mesure valide ; saut_precedent : dernière mesure si elle a été marquée « saut »."""
     if m.unite != regles.unite:
         return Verdict(False, "unite")
     if regles.min_valide is not None and m.valeur < regles.min_valide:

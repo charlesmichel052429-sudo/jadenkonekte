@@ -1,4 +1,4 @@
-"""Vannes et commandes. Une commande est publiée en MQTT puis CONFIRMÉE par l'objet :
+"""Vannes et commandes. Une commande est publiée en MQTT puis confirmée par l'objet :
 l'ingestion passe son statut à « confirmee » quand vanne/etat annonce derniere_cmd = id de la commande."""
 import secrets
 

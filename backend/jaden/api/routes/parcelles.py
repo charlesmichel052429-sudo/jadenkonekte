@@ -1,5 +1,5 @@
 """Parcelles. À la création, les 4 capteurs standards et la vanne sont déclarés automatiquement
-(ils correspondent aux topics MQTT de l'annexe du sujet)."""
+(un capteur par topic jaden/<expl>/<parcelle>/<type>/<grandeur>)."""
 import asyncpg
 from fastapi import APIRouter, Query, Response
 
@@ -15,7 +15,7 @@ from ..sql_util import mettre_a_jour
 router = APIRouter(tags=["parcelles"])
 
 # (type, grandeur, unité, min_valide, max_valide, variation_max)
-# Humidité : la fiche 05_irrigation_sol.md qualifie d'aberrante une valeur négative, NULLE ou > 100 %.
+# Humidité : la fiche 05_irrigation_sol.md qualifie d'aberrante une valeur négative, nulle ou > 100 %.
 CAPTEURS_STANDARDS = [
     ("sol", "humidite", "%", 1, 100, 15),
     ("air", "temperature", "°C", -5, 50, 10),

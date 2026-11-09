@@ -51,7 +51,7 @@ class Parametres(BaseSettings):
     reseau_groupe: str = "jaden-konekte"
     reseau_nom: str = "Jaden Konekté"
     reseau_membres: str = ""                     # noms séparés par des virgules
-    reseau_url_base: str = "http://api:8000"     # adresse de NOTRE API vue depuis le serveur central
+    reseau_url_base: str = "http://api:8000"     # adresse de l'API vue depuis le serveur central
     reseau_secret: str | None = None             # secret partagé pour signer les webhooks reçus (16 car. min.)
 
     # Assistant agronome (RAG)

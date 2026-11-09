@@ -1,4 +1,4 @@
-// Service worker (bonus PWA) : l'interface reste disponible hors connexion ; les données ne sont JAMAIS mises en cache
+// Service worker (bonus PWA) : l'interface reste disponible hors connexion ; les données ne sont jamais mises en cache
 // (elles sont personnelles et en temps réel : une valeur périmée affichée comme actuelle serait trompeuse).
 const VERSION = "jaden-v1";
 const COQUILLE = [
