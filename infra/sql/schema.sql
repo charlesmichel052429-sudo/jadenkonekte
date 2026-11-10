@@ -75,7 +75,7 @@ CREATE TABLE mesure (
   valeur    DOUBLE PRECISION NOT NULL,
   valide    BOOLEAN NOT NULL DEFAULT true,       -- false si aberrante (conservée pour la maintenance)
   motif     VARCHAR(30),                         -- hors_bornes, saut, unite… (NULL si valide)
-  zscore    REAL,                                -- bonus : écart aux mesures récentes (|z| >= 4 : valeur inhabituelle)
+  zscore    REAL,                                -- écart aux mesures récentes (|z| >= 4 : valeur inhabituelle)
   recue_le  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (capteur, ts)                      -- idempotence : un doublon MQTT (QoS 1) est ignoré
 );
@@ -165,7 +165,7 @@ CREATE TABLE diagnostic (
 CREATE INDEX diagnostic_auteur_idx ON diagnostic (auteur, cree_le DESC);
 CREATE INDEX diagnostic_parcelle_idx ON diagnostic (parcelle, cree_le DESC);
 
--- Réseau régional d'alertes (bonus) : alertes publiées par la plateforme (locale) ou reçues par webhook (reseau)
+-- Réseau régional d'alertes : alertes publiées par la plateforme (locale) ou reçues par webhook (reseau)
 CREATE TABLE alerte (
   id          VARCHAR(40) PRIMARY KEY,                  -- id du serveur central (alt_…) ; loc-<diagnostic> si non publiée
   origine     VARCHAR(20) NOT NULL CHECK (origine IN ('locale', 'reseau')),

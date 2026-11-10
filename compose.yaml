@@ -1,31 +1,17 @@
-# Plateforme Jaden Konekté — démarrage complet :  docker compose up -d --build
-# Les secrets viennent du fichier .env (voir .env.exemple), jamais du dépôt.
+# Plateforme Jaden Konekté : docker compose up -d --build
+# Les secrets sont lus dans le fichier .env (modèle : .env.exemple).
 name: jaden-konekte
 
-x-backend: &backend
-  build:
-    context: .
-    dockerfile: backend/Dockerfile
-  image: jaden-konekte/backend:dev
-  restart: unless-stopped
-  environment: &backend-env
-    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-    MQTT_HOTE: mqtt
-    MQTT_PORT: 1883
-    LOG_NIVEAU: ${LOG_NIVEAU:-INFO}
-
 services:
-  # ------------------------------------------------------------ broker MQTT (authentification + ACL)
+  # Broker MQTT avec authentification et droits par compte
   mqtt:
     image: eclipse-mosquitto:2
     entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
     environment:
-      MQTT_INGESTION_MOT_DE_PASSE: ${MQTT_INGESTION_MOT_DE_PASSE:?définir dans .env}
-      MQTT_API_MOT_DE_PASSE: ${MQTT_API_MOT_DE_PASSE:?définir dans .env}
-      MQTT_REGLES_MOT_DE_PASSE: ${MQTT_REGLES_MOT_DE_PASSE:?définir dans .env}
+      MQTT_APP_MOT_DE_PASSE: ${MQTT_APP_MOT_DE_PASSE:?définir dans .env}
       MQTT_SIMULATEUR_MOT_DE_PASSE: ${MQTT_SIMULATEUR_MOT_DE_PASSE:?définir dans .env}
     ports:
-      - "1883:1883"              # objets connectés (ESP32 / simulateur hors Docker)
+      - "1883:1883"
     volumes:
       - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./infra/mosquitto/acl:/mosquitto/config/acl:ro
@@ -34,12 +20,12 @@ services:
     networks: [iot]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u ingestion -P \"$$MQTT_INGESTION_MOT_DE_PASSE\" -t '$$SYS/broker/uptime' -C 1 -W 3 > /dev/null"]
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u app -P \"$$MQTT_APP_MOT_DE_PASSE\" -t '$$SYS/broker/uptime' -C 1 -W 3 > /dev/null"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ------------------------------------------------------------ PostgreSQL 16 + TimescaleDB + pgvector
+  # PostgreSQL 16 avec TimescaleDB et pgvector
   db:
     image: timescale/timescaledb-ha:pg16
     environment:
@@ -47,7 +33,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir dans .env}
       POSTGRES_DB: ${POSTGRES_DB:?définir dans .env}
     ports:
-      - "127.0.0.1:5432:5432"    # accessible depuis le PC uniquement (outils, pgAdmin)
+      - "127.0.0.1:5432:5432"
     volumes:
       - ./infra/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - db-data:/home/postgres/pgdata/data
@@ -59,149 +45,60 @@ services:
       timeout: 5s
       retries: 20
 
-  # ------------------------------------------------------------ ingestion MQTT -> TimescaleDB
-  ingestion:
-    <<: *backend
-    command: ["python", "-m", "jaden.ingestion"]
+  # Application : API REST, ingestion MQTT, règles d'arrosage, assistant et interface web
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
     environment:
-      <<: *backend-env
-      MQTT_UTILISATEUR: ingestion
-      MQTT_MOT_DE_PASSE: ${MQTT_INGESTION_MOT_DE_PASSE}
-    depends_on:
-      db: { condition: service_healthy }
-      mqtt: { condition: service_healthy }
-    networks: [iot, donnees]
-
-  # ------------------------------------------------------------ règles d'arrosage (humidité + Open-Meteo)
-  regles:
-    <<: *backend
-    command: ["python", "-m", "jaden.regles"]
-    environment:
-      <<: *backend-env
-      MQTT_UTILISATEUR: regles
-      MQTT_MOT_DE_PASSE: ${MQTT_REGLES_MOT_DE_PASSE}
-      REGLES_PERIODE_S: ${REGLES_PERIODE_S:-60}
-    depends_on:
-      db: { condition: service_healthy }
-      mqtt: { condition: service_healthy }
-    networks: [iot, donnees]       # + accès sortant à Internet pour Open-Meteo
-
-  # ------------------------------------------------------------ API REST
-  api:
-    <<: *backend
-    command: ["uvicorn", "jaden.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
-    environment:
-      <<: *backend-env
-      MQTT_UTILISATEUR: api
-      MQTT_MOT_DE_PASSE: ${MQTT_API_MOT_DE_PASSE}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET:?définir dans .env}
-      JWT_DUREE_S: ${JWT_DUREE_S:-3600}
       ADMIN_COURRIEL: ${ADMIN_COURRIEL:-}
       ADMIN_MOT_DE_PASSE: ${ADMIN_MOT_DE_PASSE:-}
       DEMO_INITIALISER: ${DEMO_INITIALISER:-true}
+      MQTT_HOTE: mqtt
+      MQTT_UTILISATEUR: app
+      MQTT_MOT_DE_PASSE: ${MQTT_APP_MOT_DE_PASSE}
+      IA_URL: http://ia:8000
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODELE: ${GROQ_MODELE:-openai/gpt-oss-120b}
       RESEAU_CENTRAL_URL: ${RESEAU_CENTRAL_URL:-}
       RESEAU_GROUPE: ${RESEAU_GROUPE:-jaden-konekte}
       RESEAU_NOM: ${RESEAU_NOM:-Jaden Konekté}
-      RESEAU_MEMBRES: ${RESEAU_MEMBRES:-}
-      RESEAU_URL_BASE: ${RESEAU_URL_BASE:-http://api:8000}
+      RESEAU_URL_BASE: ${RESEAU_URL_BASE:-http://app:8000}
       RESEAU_SECRET: ${RESEAU_SECRET:-}
-    volumes:
-      - diagnostics-data:/donnees/diagnostics   # photos envoyées pour diagnostic
     ports:
-      - "8000:8000"
+      - "8080:8000"
+    volumes:
+      - diagnostics-data:/donnees/diagnostics
     depends_on:
       db: { condition: service_healthy }
       mqtt: { condition: service_healthy }
-    networks: [iot, donnees, web, ia]
+    networks: [iot, donnees, ia]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/sante', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ------------------------------------------------------------ assistant agronome (RAG : pgvector + LLM)
-  assistant:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.assistant
-    image: jaden-konekte/assistant:dev
-    restart: unless-stopped
-    environment:
-      <<: *backend-env
-      FICHES_DOSSIER: /app/rag/fiches
-      LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-ollama}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODELE: ${GROQ_MODELE:-openai/gpt-oss-120b}
-      OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODELE: ${OLLAMA_MODELE:-qwen2.5:1.5b}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODELE: ${ANTHROPIC_MODELE:-claude-opus-5-5}
-    volumes:
-      - ./ia/rag:/app/rag:ro            # fiches et questions de référence (réindexées au démarrage)
-    depends_on:
-      db: { condition: service_healthy }
-    networks: [donnees, ia]           # aucun port publié : joignable uniquement par l'API
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/sante', timeout=3)"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
-  # ------------------------------------------------------------ inférence CNN (ONNX Runtime), service dédié
-  diagnostic:
-    build: ./inference
-    image: jaden-konekte/diagnostic:dev
-    restart: unless-stopped
+  # Service d'inférence séparé : diagnostic des feuilles (CNN) et embeddings, avec ONNX Runtime
+  ia:
+    build: ./service-ia
     environment:
       MODELE_DOSSIER: /modeles
-      ONNX_FILS: 2
+      EMBEDDINGS_DOSSIER: /embeddings
     volumes:
-      - ./ia/cnn:/modeles:ro          # tomate_mobilenetv3.onnx + classes.json produits par entrainement.py
-    networks: [ia]                    # aucun port publié : joignable uniquement par l'API
+      - ./ia/cnn:/modeles:ro
+    networks: [ia]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/sante', timeout=3)"]
       interval: 15s
       timeout: 5s
       retries: 5
 
-  # ------------------------------------------------------------ LLM local (profil « ollama », activé par défaut via .env)
-  ollama:
-    image: ollama/ollama:0.5.7
-    entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]
-    environment:
-      OLLAMA_MODELE: ${OLLAMA_MODELE:-qwen2.5:1.5b}
-      OLLAMA_KEEP_ALIVE: 30m          # garde le modèle en mémoire entre deux questions
-    volumes:
-      - ./infra/ollama/entrypoint.sh:/scripts/entrypoint.sh:ro
-      - ollama-data:/root/.ollama     # modèle téléchargé une seule fois
-    networks: [ia]
-    restart: unless-stopped
-    profiles: ["ollama"]
-
-  # ------------------------------------------------------------ serveur central du réseau régional, pour tester en local
-  serveur-central:
-    build: ./serveur-central
-    ports:
-      - "8081:8080"                   # http://localhost:8081/docs
-    volumes:
-      - central-data:/data
-    networks: [web]                   # appelle le webhook de l'API (http://api:8000/api/v1/webhooks/alertes)
-    profiles: ["reseau"]
-
-  # ------------------------------------------------------------ interface web (nginx : fichiers statiques + proxy /api)
-  front:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    ports:
-      - "8080:80"
-    depends_on:
-      api: { condition: service_healthy }
-    networks: [web]
-    restart: unless-stopped
-
-  # ------------------------------------------------------------ simulateur (données simulées)
+  # Simulateur de capteurs : les mesures de l'exploitation expl-1 sont simulées
   simulateur:
     build: ./simulateur
     command: ["python", "simulateur_capteurs.py", "--broker", "mqtt",
@@ -209,21 +106,29 @@ services:
               "--exploitation", "expl-1", "--parcelles", "p1", "p2", "p3",
               "--acceleration", "1", "--periode", "10"]
     environment:
-      PYTHONUNBUFFERED: "1"      # journaux visibles immédiatement (docker compose logs simulateur)
+      PYTHONUNBUFFERED: "1"
     depends_on:
       mqtt: { condition: service_healthy }
-    networks: [iot]              # aucun accès à la base : il ne parle qu'au broker
+    networks: [iot]
     restart: unless-stopped
 
+  # Serveur central du réseau régional, pour les essais en local (profil « reseau »)
+  serveur-central:
+    build: ./serveur-central
+    ports:
+      - "8081:8080"
+    volumes:
+      - central-data:/data
+    networks: [ia]
+    profiles: ["reseau"]
+
 networks:
-  iot:        # objets, broker, services qui parlent MQTT
-  donnees:    # base de données, jamais exposée aux objets
-  web:        # API et front
-  ia:         # API, assistant RAG, LLM local
+  iot:        # objets et broker MQTT
+  donnees:    # base de données, inaccessible aux objets
+  ia:         # application, service d'inférence, serveur central
 
 volumes:
   mqtt-data:
   db-data:
-  ollama-data:
   diagnostics-data:
   central-data:
