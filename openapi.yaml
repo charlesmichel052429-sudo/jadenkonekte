@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: API Jaden Konekté
-  version: 0.1.0
+  version: 1.0.0
   summary: Suivi des parcelles connectées, arrosage, diagnostic des feuilles et assistant agronome.
   description: |
     Contrat rédigé avant l'implémentation ; un test automatisé vérifie que la spécification
@@ -22,7 +22,7 @@ info:
   contact:
     name: Projet Jaden Konekté — M2 IA, Université des Antilles
 servers:
-  - url: http://localhost:8000
+  - url: http://localhost:8080
     description: Développement local (docker compose)
 
 security:
@@ -714,24 +714,19 @@ paths:
         L'image est validée (JPEG ou PNG, 5 Mo maximum) puis transmise au service
         d'inférence ONNX, distinct de l'API. Le résultat est enregistré avec la version du modèle.
       operationId: creerDiagnostic
+      parameters:
+        - name: parcelle_id
+          in: query
+          description: Parcelle où la feuille a été prélevée
+          schema: { type: integer, minimum: 1 }
       requestBody:
         required: true
+        description: La photo elle-même, en corps de requête
         content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [image]
-              properties:
-                image:
-                  type: string
-                  contentMediaType: application/octet-stream
-                  description: Photo de feuille (image/jpeg ou image/png)
-                parcelle_id:
-                  type: integer
-                  minimum: 1
-            encoding:
-              image:
-                contentType: image/jpeg, image/png
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
       responses:
         '201':
           description: Diagnostic réalisé
@@ -1627,8 +1622,6 @@ components:
         gravite: { type: [string, 'null'] }
         commune: { type: [string, 'null'] }
         score: { type: [number, 'null'] }
-        lat: { type: [number, 'null'], description: Position approximative (~1 km) si l'émetteur l'a fournie }
-        lon: { type: [number, 'null'] }
         recue_le: { type: string, format: date-time }
 
     PageAlertes:

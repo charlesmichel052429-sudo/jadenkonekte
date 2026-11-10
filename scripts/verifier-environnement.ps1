@@ -44,7 +44,7 @@ Verifier "Contrat openapi.yaml" {
     if ($r -notmatch ': OK') { throw $r.Trim() }
     "valide (OpenAPI 3.1)"
 }
-foreach ($port in 1883, 9001, 5432, 8000) {
+foreach ($port in 1883, 8080) {
     Verifier "Port $port libre" {
         $c = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue
         if ($c) {

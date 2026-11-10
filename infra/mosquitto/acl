@@ -1,19 +1,12 @@
-# Droits par compte MQTT (principe du moindre privilège) — dérivé de acl.exemple
+# Droits par compte MQTT (moindre privilège)
 
-# Service d'ingestion : lit toutes les mesures, états de vanne et statuts
-user ingestion
+# Application : lit les mesures, états et statuts ; publie uniquement les commandes de vanne
+user app
 topic read jaden/#
+topic write jaden/+/+/vanne/cmd
 topic read $SYS/broker/uptime
 
-# API : publie uniquement les commandes manuelles de vanne
-user api
-topic write jaden/+/+/vanne/cmd
-
-# Service de règles : publie uniquement les commandes automatiques de vanne
-user regles
-topic write jaden/+/+/vanne/cmd
-
-# Simulateur de l'exploitation expl-1 : publie ses mesures/état, écoute ses commandes
+# Simulateur de l'exploitation expl-1 : publie ses mesures et états, lit ses commandes
 user simulateur
 topic write jaden/expl-1/+/sol/#
 topic write jaden/expl-1/+/air/#
@@ -22,7 +15,7 @@ topic write jaden/expl-1/+/vanne/etat
 topic write jaden/expl-1/+/statut
 topic read jaden/expl-1/+/vanne/cmd
 
-# Capteur réel ESP32 (exemple) : une seule parcelle
+# Capteur ESP32 d'une seule parcelle
 user capteur-p1
 topic write jaden/expl-1/p1/#
 topic read jaden/expl-1/p1/vanne/cmd

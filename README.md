@@ -5,7 +5,6 @@ temps réel, commande de vanne, arrosage automatique tenant compte de la météo
 tomate (CNN) et assistant agronome (LLM + RAG).
 
 Projet individuel — M2 Intelligence Artificielle, Applications et Services Web, Université des Antilles.
-Construit à partir du kit fourni (`simulateur/`, `esp32/`, `ia/`, `contrats/`, `serveur-central/`, `infra/`).
 
 ## Démarrage (Windows / PowerShell, Docker Desktop en mode Linux)
 
@@ -17,79 +16,124 @@ powershell -ExecutionPolicy Bypass -File .\scripts\initialiser-env.ps1
 docker compose up -d --build
 
 # 3. Vérifications
-docker compose ps                                  # tous les services « Up », api et db « healthy »
-curl.exe http://localhost:8000/api/v1/sante
+docker compose ps
+curl.exe http://localhost:8080/api/v1/sante
 ```
 
-- **Application web : <http://localhost:8080>**
-- Documentation interactive de l'API : <http://localhost:8000/docs>
+- Application web : <http://localhost:8080>
+- Documentation interactive de l'API : <http://localhost:8080/docs>
 - Compte administrateur : `ADMIN_COURRIEL` / `ADMIN_MOT_DE_PASSE` dans `.env`
 - L'exploitation **expl-1** (parcelles p1, p2, p3) est créée au premier démarrage et alimentée par le
-  **simulateur fourni** : ses données sont simulées (`DEMO_INITIALISER=false` pour la désactiver).
+  simulateur : ses données sont simulées (`DEMO_INITIALISER=false` pour la désactiver).
+- L'assistant a besoin d'une clé Groq (`GROQ_API_KEY` dans `.env`, gratuite sur <https://console.groq.com>).
 
 ## Architecture
 
+Quatre conteneurs suffisent, plus le simulateur :
+
 | Service | Rôle | Réseaux |
 |---|---|---|
-| `mqtt` | Mosquitto 2, authentification + ACL par compte (`infra/mosquitto/acl`) | iot |
+| `mqtt` | Mosquitto 2, authentification et droits par compte (`infra/mosquitto/acl`) | iot |
 | `db` | PostgreSQL 16 + TimescaleDB (hypertable `mesure`) + pgvector | donnees |
-| `ingestion` | Abonné MQTT QoS 1 : validation, mesures aberrantes, dédoublonnage, stockage, NOTIFY temps réel | iot, donnees |
-| `api` | FastAPI : JWT, rôles, contrôle d'accès objet, REST + SSE, publication des commandes de vanne | iot, donnees, web |
-| `regles` | Évalue les règles chaque minute : humidité valide + pluie prévue (Open-Meteo, cache 30 min, secours 6 h) → commande de vanne, journal des décisions | iot, donnees |
-| `assistant` | RAG : 38 passages des fiches, recherche hybride pgvector + plein texte, LLM en streaming (Groq par défaut ; Ollama ou API Claude en option) | donnees, ia |
-| `diagnostic` | Inférence CNN (ONNX Runtime) dans un service séparé ; lit `ia/cnn/tomate_mobilenetv3.onnx` produit par `entrainement.py` (rechargé automatiquement après un nouvel entraînement) | ia |
-| `front` | nginx : interface web (HTML/CSS/JS modules, Chart.js) + proxy `/api` (même origine, CSP stricte) | web |
-| `simulateur` | Simulateur du kit (3 parcelles, vanne commandable, pannes) | iot |
+| `app` | Un seul processus Python : API REST, ingestion MQTT, règles d'arrosage, assistant, interface web | iot, donnees, ia |
+| `ia` | Inférence séparée (ONNX Runtime) : classification des feuilles et embeddings des textes | ia |
+| `simulateur` | Simulateur de capteurs (3 parcelles, vanne commandable, pannes) | iot |
 
-Chaîne d'une mesure : simulateur → `jaden/expl-1/p1/sol/humidite` (QoS 1) → ingestion (validation) →
-TimescaleDB → `pg_notify` → API → navigateur (SSE).
+L'application est volontairement un seul service : l'ingestion, les règles et l'API partagent la même
+connexion à la base et le même client MQTT, et le temps réel passe par un diffuseur en mémoire
+(`jaden/temps_reel.py`) au lieu d'un mécanisme entre processus. Le service `ia` reste à part parce que
+l'inférence charge des modèles lourds et ne doit pas bloquer l'API.
 
-Chaîne d'une commande : `POST /api/v1/equipements/{id}/commandes` (202, statut `envoyee`) → MQTT
-`.../vanne/cmd` → l'objet applique et publie `.../vanne/etat` avec `derniere_cmd` → ingestion → statut
-`confirmee` (ou `expiree` sans réponse après 60 s).
+Dépendances Python de l'application : FastAPI, uvicorn, asyncpg, paho-mqtt, httpx. Les jetons JWT (HS256)
+et le hachage des mots de passe (scrypt) sont écrits avec la bibliothèque standard (`jaden/securite.py`).
+L'interface est en HTML/CSS/JavaScript sans étape de compilation ; seule Chart.js est chargée.
 
-## Assistant agronome (LLM)
+### Organisation du code
 
-Le fournisseur se choisit dans `.env` : `LLM_FOURNISSEUR=groq` avec `GROQ_API_KEY` (clé gratuite sur
-<https://console.groq.com>), ou `ollama` (local, `COMPOSE_PROFILES=ollama`), ou `anthropic` (`ANTHROPIC_API_KEY`).
-Évaluation sur les 20 questions de référence : `ia/rag/evaluation.md`, régénérée par
-`docker compose exec -T assistant python -m jaden.assistant.evaluation --pause 8 > ia/rag/evaluation.md`.
+```
+app/jaden/
+  main.py          démarrage, tâches de fond, en-têtes de sécurité, interface statique
+  config.py        lecture des variables d'environnement
+  securite.py      mots de passe, jetons JWT, utilisateur courant
+  acces.py         contrôle d'accès aux exploitations et parcelles
+  mqtt.py          client MQTT (réception et publication)
+  validation.py    contrôle des mesures (unité, bornes, sauts, z-score)
+  ingestion.py     enregistrement des mesures, confirmation des commandes
+  meteo.py         prévisions Open-Meteo avec cache
+  regles.py        décision d'arrosage et moteur de règles
+  rag.py, llm.py   recherche dans les fiches et génération de la réponse
+  reseau.py        réseau régional d'alertes
+  routes/          points d'entrée de l'API
+app/web/           interface web
+app/tests/         tests de l'application
+service-ia/        service d'inférence et ses tests
+infra/             schéma SQL et configuration du broker
+ia/                entraînement du CNN, fiches agronomiques, évaluations
+```
 
-## Bonus réalisés
+### Chaîne d'une mesure
 
-| Bonus | Où | Remarques |
+simulateur → `jaden/expl-1/p1/sol/humidite` (QoS 1) → `ingestion.py` (validation, dédoublonnage par
+`(capteur, ts)`) → TimescaleDB → diffuseur → navigateur (SSE).
+
+Une mesure illisible est rejetée ; une mesure lisible mais douteuse (mauvaise unité, hors bornes, saut
+brutal) est conservée avec son motif et écartée des graphiques et des règles.
+
+### Chaîne d'une commande
+
+`POST /api/v1/equipements/{id}/commandes` (202, statut `envoyee`) → MQTT `.../vanne/cmd` → l'objet
+applique et publie `.../vanne/etat` avec `derniere_cmd` → statut `confirmee` (ou `expiree` sans réponse
+après 60 s).
+
+### Arrosage automatique
+
+Chaque minute, `regles.py` évalue les règles actives : moyenne d'humidité sur 10 minutes (au moins
+3 mesures valides), seuil, délai minimal entre deux arrosages, pluie prévue (Open-Meteo, cache de
+30 minutes, valeur de secours pendant 6 heures). Chaque décision est écrite dans un journal consultable
+depuis l'interface.
+
+### Diagnostic des feuilles
+
+MobileNetV3-Small entraîné sur PlantVillage (`ia/cnn/entrainement.py`), exporté en ONNX. En dessous de
+0,7 de confiance, le résultat est présenté comme incertain. Résultats : `ia/cnn/evaluation.md`.
+
+### Assistant agronome
+
+Les fiches de `ia/rag/fiches` sont découpées par section et indexées au démarrage. Une question lance
+une recherche hybride (vecteurs pgvector + plein texte français, fusion par rangs), puis le LLM répond
+en flux à partir des seuls passages retrouvés, en citant ses sources. Une question sans passage
+pertinent est déclarée hors corpus sans appeler le LLM. Évaluation sur 20 questions :
+
+```powershell
+docker compose exec -T app python -m jaden.evaluation --pause 8 > ia/rag/evaluation.md
+```
+
+## Compléments
+
+| Complément | Où | Fonctionnement |
 |---|---|---|
-| Réseau régional d'alertes | `backend/jaden/api/reseau.py`, `routes/reseau.py` | inscription (administrateur), alerte publiée quand l'exploitant **confirme** un diagnostic fiable, webhook signé HMAC-SHA256 ; test local avec `COMPOSE_PROFILES=reseau` (serveur central du kit sur <http://localhost:8081/docs>) |
-| Détection d'anomalies | `backend/jaden/ingestion/validation.py` (`zscore`) | z-score sur les 60 dernières mesures valides (humidité, température) ; une valeur à 4 écarts-types est conservée mais signalée |
-| Carte des parcelles | tableau de bord (Leaflet, tuiles OpenStreetMap) | couleur selon la parcelle la plus sèche ; alertes du réseau en rouge |
-| PWA | `frontend/public/manifest.webmanifest`, `sw.js` | installable ; l'interface reste disponible hors connexion, les données de l'API ne sont jamais mises en cache |
+| Réseau régional d'alertes | `app/jaden/reseau.py`, `routes/alertes.py` | alerte publiée quand l'exploitant confirme un diagnostic fiable ; réception par webhook signé HMAC-SHA256. Essai local : `COMPOSE_PROFILES=reseau` (serveur central sur <http://localhost:8081/docs>) |
+| Détection d'anomalies | `app/jaden/validation.py` (`zscore`) | z-score sur les 60 dernières mesures valides ; une valeur à 4 écarts-types est conservée mais signalée |
 
 ## Tests
 
 ```powershell
-docker compose run --rm api pytest
-docker compose run --rm diagnostic python -m pytest
+docker compose run --rm app pytest
+docker compose run --rm ia python -m pytest
 ```
 
-Les tests utilisent une base PostgreSQL/TimescaleDB réelle et jetable (`jaden_test`, recréée depuis
-`infra/sql/schema.sql`) ; le broker est remplacé par un faux publieur. Ils couvrent l'authentification,
-les rôles, le contrôle d'accès, la validation des mesures, l'ingestion (doublons QoS 1, aberrantes,
-confirmation de commande), les erreurs RFC 9457 et la conformité au contrat `openapi.yaml`.
-
-Le contrat seul se valide avec :
-
-```powershell
-py -3.13 -m venv .venv; .\.venv\Scripts\pip install openapi-spec-validator
-.\.venv\Scripts\openapi-spec-validator.exe openapi.yaml
-```
+Les tests de l'application utilisent une vraie base PostgreSQL/TimescaleDB jetable (`jaden_test`,
+recréée depuis `infra/sql/schema.sql`) ; le broker et les services appelés en HTTP sont simulés. Ils
+couvrent l'authentification, les rôles, le contrôle d'accès, la validation et l'ingestion des mesures,
+les commandes, les règles, le diagnostic, l'assistant, le réseau et la conformité au contrat
+`openapi.yaml`.
 
 ## Commandes utiles
 
 ```powershell
-docker compose logs -f ingestion                   # bilan de validation chaque minute
+docker compose logs -f app                         # journal de l'application
 docker compose exec db psql -U jaden -d jaden      # console SQL
 docker compose down                                # arrêt (les volumes sont conservés)
 ```
 
-`docker compose down -v` **supprime les données** (base et broker) : à n'utiliser que volontairement.
-Le schéma SQL n'est appliqué qu'à la création du volume `db-data`.
+`docker compose down -v` supprime les données (base et broker).

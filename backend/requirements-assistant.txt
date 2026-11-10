@@ -1,3 +1,0 @@
-# Dépendances propres au service assistant (RAG), en plus de requirements.txt
-fastembed>=0.4,<1        # embeddings ONNX sur CPU, sans PyTorch
-anthropic>=0.40          # API Claude (fournisseur LLM optionnel)
