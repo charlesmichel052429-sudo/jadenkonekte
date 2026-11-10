@@ -1,6 +1,6 @@
 """Service d'inférence : validation des images, prétraitement, modèle ONNX (petit modèle de test), API HTTP.
 
-    docker compose run --rm diagnostic python -m pytest -q tests
+    docker compose run --rm ia python -m pytest tests
 """
 import io
 import json
@@ -12,8 +12,8 @@ import pytest
 from onnx import TensorProto, helper
 from PIL import Image
 
-from diagnostic.modele import Classifieur, ModeleIndisponible
-from diagnostic.pretraitement import ECART, MOY, ImageInvalide, charger, pretraiter
+from ia_service.classifieur import Classifieur, ModeleIndisponible
+from ia_service.images import ECART, MOY, ImageInvalide, charger, pretraiter
 
 CLASSES = [f"Tomato___classe_{i}" for i in range(10)]
 
@@ -109,7 +109,7 @@ def test_classes_incoherentes_refusees(tmp_path):
 # ------------------------------------------------------------------ service HTTP
 def test_service_http(tmp_path):
     from fastapi.testclient import TestClient
-    from diagnostic import service
+    from ia_service import service
     service.app.state.classifieur = Classifieur(tmp_path)
     with TestClient(service.app) as client:
         assert client.get("/sante").json()["modele_charge"] is False
