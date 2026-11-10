@@ -48,6 +48,9 @@ async def amorcer(pool, c) -> None:
             c.admin_courriel.lower(), hacher(c.admin_mot_de_passe))
         if admin_id is None:
             admin_id = await con.fetchval("SELECT id FROM utilisateur WHERE courriel = $1", c.admin_courriel.lower())
+            # un mot de passe enregistré dans un autre format que scrypt est recalculé depuis la configuration
+            await con.execute("UPDATE utilisateur SET mot_de_passe = $2 WHERE id = $1 AND mot_de_passe NOT LIKE 'scrypt$%'",
+                              admin_id, hacher(c.admin_mot_de_passe))
         if not c.demo:
             return
         exploitation_id = await con.fetchval(
