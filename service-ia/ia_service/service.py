@@ -5,6 +5,7 @@ Les calculs tournent dans un thread pour ne pas bloquer la boucle d'événements
 import asyncio
 import logging
 import os
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -21,12 +22,14 @@ FILS = int(os.getenv("ONNX_FILS", "2"))
 app = FastAPI(title="Service d'inférence Jaden Konekté")
 app.state.classifieur = Classifieur(Path(os.getenv("MODELE_DOSSIER", "/modeles")), FILS)
 app.state.plongeur = None
+CHARGEMENT = threading.Lock()
 
 
 def plongeur() -> Plongeur:
     """Charge le modèle d'embeddings au premier appel et le garde en mémoire."""
-    if app.state.plongeur is None:
-        app.state.plongeur = Plongeur(Path(os.getenv("EMBEDDINGS_DOSSIER", "/embeddings")), FILS)
+    with CHARGEMENT:                                   # un seul chargement, même si deux appels arrivent ensemble
+        if app.state.plongeur is None:
+            app.state.plongeur = Plongeur(Path(os.getenv("EMBEDDINGS_DOSSIER", "/embeddings")), FILS)
     return app.state.plongeur
 
 

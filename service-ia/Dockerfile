@@ -4,8 +4,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=120 --retries 10 -r requirements.txt
-# Modèle d'embeddings multilingue (version quantifiée) intégré à l'image
-ADD https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2/resolve/main/onnx/model_quantized.onnx /embeddings/model.onnx
+# Modèle d'embeddings multilingue intégré à l'image (la version quantifiée dégrade trop la recherche)
+ADD https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2/resolve/main/onnx/model.onnx /embeddings/model.onnx
 ADD https://huggingface.co/Xenova/paraphrase-multilingual-MiniLM-L12-v2/resolve/main/tokenizer.json /embeddings/tokenizer.json
 RUN chmod -R a+r /embeddings
 COPY ia_service /app/ia_service

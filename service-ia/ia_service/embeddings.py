@@ -1,11 +1,13 @@
 """Embeddings de phrases avec un modèle multilingue exporté en ONNX (384 dimensions)."""
+import threading
 from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
 from tokenizers import Tokenizer
 
-LONGUEUR_MAX = 256
+LONGUEUR_MAX = 128          # longueur de séquence prévue par le modèle
+TAILLE_LOT = 8
 
 
 class Plongeur:
@@ -19,10 +21,19 @@ class Plongeur:
         options.intra_op_num_threads = fils
         self.session = ort.InferenceSession(str(Path(dossier) / "model.onnx"), options,
                                             providers=["CPUExecutionProvider"])
+        self.verrou = threading.Lock()
         self.entrees = {e.name for e in self.session.get_inputs()}
 
     def encoder(self, textes: list[str]) -> list[list[float]]:
-        """Calcule l'embedding de chaque texte : moyenne des vecteurs des tokens, puis normalisation."""
+        """Calcule l'embedding de chaque texte, par petits lots et un appel à la fois pour limiter la mémoire."""
+        vecteurs = []
+        with self.verrou:
+            for debut in range(0, len(textes), TAILLE_LOT):
+                vecteurs += self._encoder_lot(textes[debut:debut + TAILLE_LOT])
+        return vecteurs
+
+    def _encoder_lot(self, textes: list[str]) -> list[list[float]]:
+        """Encode un lot : moyenne des vecteurs des tokens de chaque texte, puis normalisation."""
         lots = self.tokenizer.encode_batch(textes)
         ids = np.array([l.ids for l in lots], dtype=np.int64)
         masque = np.array([l.attention_mask for l in lots], dtype=np.int64)

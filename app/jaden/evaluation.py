@@ -22,7 +22,8 @@ from .db import creer_pool
 from .llm import Groq
 from .rag import Assistant
 
-MOTS_VIDES = {"dans", "pour", "avec", "sans", "plus", "elle", "sont", "faut", "être", "avant", "après", "entre"}
+MOTS_VIDES = {"dans", "pour", "avec", "sans", "plus", "elle", "sont", "faut", "etre", "avant", "apres", "entre",
+              "les", "des", "une", "par", "pas", "que", "sur", "aux"}
 
 
 def normaliser(texte: str) -> str:
@@ -32,10 +33,13 @@ def normaliser(texte: str) -> str:
 
 
 def element_present(element: str, reponse: str) -> bool:
-    """Vrai si tous les mots significatifs de l'élément (radical de 5 lettres) sont dans la réponse."""
-    mots = [m for m in re.findall(r"[a-z0-9]{4,}", normaliser(element)) if m not in MOTS_VIDES]
+    """Vrai si tous les mots significatifs de l'élément sont dans la réponse.
+
+    Un mot long est comparé par son radical de 5 lettres ; un mot court (« non », « sol ») doit apparaître en entier.
+    """
+    mots = [m for m in re.findall(r"[a-z0-9]{3,}", normaliser(element)) if m not in MOTS_VIDES]
     texte = normaliser(reponse)
-    return bool(mots) and all(m[:5] in texte for m in mots)
+    return bool(mots) and all(m[:5] in texte if len(m) >= 5 else re.search(rf"\b{m}\b", texte) for m in mots)
 
 
 async def interroger(assistant: Assistant, question: str) -> dict:
