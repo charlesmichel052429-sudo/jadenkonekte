@@ -13,7 +13,7 @@ from jaden.config import config
 from jaden.db import creer_pool
 from jaden.llm import Groq, LLMIndisponible
 from jaden.rag import (REPONSE_HORS_CORPUS, SECTION_INTRO, Assistant, decouper, fusion_rrf, requete_plein_texte,
-                       selectionner)
+                       requete_recherche, selectionner)
 from test_authentification import est_probleme
 
 FICHE = """# Fiche — Tomate : maladies
@@ -45,6 +45,13 @@ def test_requete_plein_texte_sans_operateurs():
     assert requete_plein_texte("Comment reconnaître le mildiou ?") == "comment | reconnaître | mildiou"
     assert requete_plein_texte("a & b | !c:* ") is None
     assert requete_plein_texte("mildiou ; DROP TABLE passage") == "mildiou | drop | table | passage"
+
+
+def test_culture_de_la_parcelle_ajoutee_a_la_recherche():
+    assert requete_recherche("Quelles maladies surveiller ?", "igname") == "Quelles maladies surveiller ? (igname)"
+    assert requete_recherche("Maladies de l'igname ?", "igname") == "Maladies de l'igname ?"
+    assert requete_recherche("Quand arroser ?", None) == "Quand arroser ?"
+    assert requete_recherche("Quand arroser ?", "autre") == "Quand arroser ?"
 
 
 def test_selection_hybride():

@@ -105,6 +105,14 @@ def selectionner(par_vecteur: list[int], par_mots: list[int], k: int, garantis: 
     return sorted(choix, key=rrf.index)
 
 
+def requete_recherche(question: str, culture: str | None) -> str:
+    """Texte utilisé pour chercher les passages : la culture de la parcelle choisie y est ajoutée,
+    sinon « Quelles maladies surveiller ? » sur une parcelle d'igname ne retrouverait pas la fiche igname."""
+    if not culture or culture == "autre" or culture.lower() in question.lower():
+        return question
+    return f"{question} ({culture})"
+
+
 def sources_citees(texte: str, nb_sources: int) -> list[int]:
     """Numéros [n] cités dans la réponse qui correspondent à une source réellement fournie."""
     return sorted({int(n) for n in re.findall(r"\[(\d+)\]", texte) if 1 <= int(n) <= nb_sources})
@@ -157,7 +165,7 @@ class Assistant:
         """Génère les événements SSE d'une réponse : sources, fragments de texte, puis fin."""
         debut = time.monotonic()
         try:
-            trouves = await self.rechercher(question, self.c.rag_k)
+            trouves = await self.rechercher(requete_recherche(question, culture), self.c.rag_k)
         except httpx.HTTPError:
             yield _sse("erreur", {"status": 503, "detail": "Assistant momentanément indisponible"})
             return
