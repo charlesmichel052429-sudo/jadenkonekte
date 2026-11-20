@@ -234,6 +234,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 
 .detail-grille { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1.2rem; align-items: start; }
 .colonne { display: grid; gap: 1.2rem; min-width: 0; }
+.colonne > * { min-width: 0; }   /* une carte ne force jamais la colonne à s'élargir */
 .graphique-entete { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; margin-bottom: .6rem; }
 .graphique-entete .carte-titre { margin: 0; }
 .segments { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--sable); border-radius: 11px; border: 1px solid var(--trait); }
@@ -310,8 +311,8 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .saisie-question textarea { width: 100%; resize: vertical; min-height: 52px; padding: .65rem .8rem; border-radius: 12px;
                             border: 1px solid #d8d1c3; font: 500 .95rem/1.4 var(--texte-police); color: var(--texte); }
 .saisie-question textarea:focus { border-color: var(--feuille); outline: 3px solid rgba(47,138,85,.18); }
-.saisie-actions { display: flex; gap: .6rem; justify-content: space-between; align-items: center; }
-.saisie-actions select { width: auto; max-width: 60%; min-height: 40px; }
+.saisie-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: space-between; align-items: center; }
+.saisie-actions select { flex: 1 1 12rem; width: auto; min-width: 0; max-width: 100%; min-height: 40px; text-overflow: ellipsis; }
 
 /* ------------------------------------------------------------------ réseau régional */
 .panneau-reseau { margin-top: 2rem; }
