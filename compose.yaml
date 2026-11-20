@@ -101,12 +101,15 @@ services:
   # Simulateur de capteurs : les mesures de l'exploitation expl-1 sont simulées
   simulateur:
     build: ./simulateur
-    command: ["python", "simulateur_capteurs.py", "--broker", "mqtt",
+    # Enveloppe qui relance le simulateur après une mise en veille du PC (sinon ses mesures prennent du retard)
+    command: ["python", "/enveloppe/relance_apres_veille.py", "--broker", "mqtt",
               "--user", "simulateur", "--password", "${MQTT_SIMULATEUR_MOT_DE_PASSE}",
               "--exploitation", "expl-1", "--parcelles", "p1", "p2", "p3",
               "--acceleration", "1", "--periode", "10"]
     environment:
       PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./infra/simulateur/relance_apres_veille.py:/enveloppe/relance_apres_veille.py:ro
     depends_on:
       mqtt: { condition: service_healthy }
     networks: [iot]
@@ -121,6 +124,7 @@ services:
       - central-data:/data
     networks: [ia]
     profiles: ["reseau"]
+    restart: unless-stopped
 
 networks:
   iot:        # objets et broker MQTT

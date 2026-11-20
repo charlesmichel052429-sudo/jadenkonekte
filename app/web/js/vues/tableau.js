@@ -1,9 +1,12 @@
-// Tableau de bord : toutes les parcelles accessibles, rafraîchies toutes les 30 secondes.
+// Tableau de bord : indicateurs, graphiques et toutes les parcelles accessibles, rafraîchis toutes les 30 secondes
+// (les graphiques toutes les 2 minutes).
 // Le flux temps réel est réservé à la page d'une parcelle, pour limiter les connexions ouvertes.
 import { api } from "../api.js";
+import { panneauGraphiques } from "../graphiques-tableau.js";
 import { el, icone, enteteVue, etatVide, etatHumidite, valeurGrandeur, nombre, ilYa, dateHeure, toast, boutonOccupe, GRANDEURS } from "../util.js";
 
 const RAFRAICHISSEMENT_MS = 30000;
+const RAFRAICHISSEMENT_GRAPHIQUES_MS = 120000;
 
 function jauge(v) {
   const pct = v == null ? 0 : Math.max(0, Math.min(100, (v / 60) * 100));   // échelle 0–60 % (humidité volumique)
@@ -74,8 +77,10 @@ export default async function vueTableau(racine, _params, { profil }) {
   const zone = el("div", { class: "zone-parcelles" });
   const kpis = el("div", { class: "grille-kpi" });
   const reseau = el("div");
+  const graphiques = el("div");
+  let panneau = null, derniersGraphiques = 0;
   racine.append(enteteVue(`Bonjour ${profil.prenom}`, "Vue d'ensemble de vos parcelles connectées.",
-    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, zone, reseau);
+    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, graphiques, zone, reseau);
   panneauReseau(reseau, profil.role === "administrateur").catch(() => reseau.replaceChildren());
 
   async function charger() {
@@ -83,6 +88,7 @@ export default async function vueTableau(racine, _params, { profil }) {
       api("/parcelles?taille=100"), api("/exploitations?taille=100")]);
     if (!parcelles.length) {
       kpis.replaceChildren();
+      graphiques.replaceChildren();
       zone.replaceChildren(etatVide("carte", "Aucune parcelle pour l'instant",
         "Créez une exploitation et ses parcelles : leurs capteurs et leur vanne seront déclarés automatiquement.",
         el("a", { class: "btn btn-principal", href: "#/exploitations" }, "Créer ma première parcelle")));
@@ -110,9 +116,15 @@ export default async function vueTableau(racine, _params, { profil }) {
         el("div", { class: "grille-parcelles" }, idx.map(([p, i]) => carteParcelle(p, details[i][0], details[i][1][0]))));
     });
     zone.replaceChildren(...groupes.filter(Boolean));
+
+    if (Date.now() - derniersGraphiques >= RAFRAICHISSEMENT_GRAPHIQUES_MS - 1000) {
+      derniersGraphiques = Date.now();
+      if (!panneau) { panneau = panneauGraphiques(); graphiques.replaceChildren(panneau.racine); }
+      panneau.maj(parcelles, details.map(([, eq]) => eq[0]).filter(Boolean)).catch(() => {});
+    }
   }
 
   await charger();
   const minuterie = setInterval(() => charger().catch(() => {}), RAFRAICHISSEMENT_MS);
-  return () => clearInterval(minuterie);
+  return () => { clearInterval(minuterie); panneau?.detruire(); };
 }
