@@ -279,6 +279,11 @@ class HeurePrevision(BaseModel):
     probabilite_pluie: int | None = None
 
 
+class PluieActuelle(BaseModel):
+    ts: datetime
+    pluie_mm_h: float
+
+
 class Previsions(BaseModel):
     lat: float
     lon: float
@@ -286,6 +291,7 @@ class Previsions(BaseModel):
     obtenues_le: datetime
     cumul_pluie_mm: float
     heures: list[HeurePrevision]
+    pluie_actuelle: PluieActuelle | None = None
 
 
 # ---------------------------------------------------------------- diagnostics

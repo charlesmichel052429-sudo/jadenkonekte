@@ -18,7 +18,8 @@ MAINTENANT = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 def reponse_open_meteo(pluie=0.0):
     debut = MAINTENANT.replace(minute=0)
     heures = [(debut + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(48)]
-    return {"hourly": {"time": heures, "precipitation": [pluie] * 48, "precipitation_probability": [10] * 48}}
+    return {"hourly": {"time": heures, "precipitation": [pluie] * 48, "precipitation_probability": [10] * 48},
+            "current": {"time": MAINTENANT.strftime("%Y-%m-%dT%H:%M"), "interval": 900, "precipitation": pluie / 4}}
 
 
 class OpenMeteoSimule:
@@ -28,6 +29,7 @@ class OpenMeteoSimule:
     def __call__(self, requete: httpx.Request) -> httpx.Response:
         self.appels += 1
         assert requete.url.params["hourly"] == "precipitation,precipitation_probability"
+        assert requete.url.params["current"] == "precipitation"
         if self.en_panne:
             return httpx.Response(503)
         return httpx.Response(200, json=reponse_open_meteo(self.pluie))
@@ -60,6 +62,17 @@ def test_cache_puis_secours_puis_indisponible():
         sim.en_panne = False
         p4 = await meteo.previsions(lat, lon, MAINTENANT + timedelta(hours=8))
         assert p4.source == "api" and p4.obtenues_le == MAINTENANT + timedelta(hours=8)
+    avec_meteo(scenario)
+
+
+def test_pluie_actuelle_en_mm_par_heure_et_conservee_en_cache():
+    lat, lon = 14.7 + (MAINTENANT.minute / 1000), -61.1
+
+    async def scenario(meteo, sim):
+        sim.pluie = 2.0                     # 0,5 mm sur le dernier quart d'heure = 2 mm/h
+        p1 = await meteo.previsions(lat, lon, MAINTENANT)
+        p2 = await meteo.previsions(lat, lon, MAINTENANT + timedelta(minutes=10))     # relue depuis le cache
+        assert p1.actuelle["pluie_mm_h"] == 2.0 and p2.actuelle == p1.actuelle and sim.appels == 1
     avec_meteo(scenario)
 
 

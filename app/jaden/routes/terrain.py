@@ -330,4 +330,5 @@ async def lire_previsions(parcelle_id: int, u: Utilisateur, con: Connexion, requ
     except MeteoIndisponible as e:
         raise Probleme(503, str(e), {"Retry-After": "300"})
     return {"lat": prev.lat, "lon": prev.lon, "source": prev.source, "obtenues_le": prev.obtenues_le,
-            "cumul_pluie_mm": prev.cumul(maintenant, heures), "heures": prev.prochaines(maintenant, heures)}
+            "cumul_pluie_mm": prev.cumul(maintenant, heures), "heures": prev.prochaines(maintenant, heures),
+            "pluie_actuelle": prev.actuelle}

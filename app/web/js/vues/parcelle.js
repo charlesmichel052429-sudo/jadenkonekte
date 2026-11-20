@@ -198,6 +198,10 @@ function panneauMeteo(parcelleId) {
               (h.probabilite_pluie != null ? ` (probabilité ${h.probabilite_pluie} %)` : "") },
             el("span", { style: `height:${Math.max(2, (h.pluie_mm / max) * 100)}%` }),
             el("small", {}, heure(h.ts).slice(0, 2))))),
+        p.pluie_actuelle ? el("p", { class: "meteo-actuelle" },
+          el("strong", {}, p.pluie_actuelle.pluie_mm_h > 0 ? "Il pleut en ce moment : " : "En ce moment : "),
+          `${nombre(p.pluie_actuelle.pluie_mm_h)} mm/h`,
+          el("span", { class: "muted" }, " · estimation météo pour la commune ; la mesure sur place est celle du pluviomètre")) : null,
         el("p", { class: "muted petit" }, `Mises à jour ${ilYa(p.obtenues_le)}`));
     } catch (e) {
       corps.replaceChildren(el("p", { class: "alerte-capteur" }, icone("alerte"), e.message));

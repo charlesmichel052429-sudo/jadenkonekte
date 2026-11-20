@@ -1544,6 +1544,15 @@ components:
               ts: { type: string, format: date-time }
               pluie_mm: { type: number }
               probabilite_pluie: { type: [integer, 'null'], minimum: 0, maximum: 100 }
+        pluie_actuelle:
+          type: [object, 'null']
+          description: |
+            Pluie estimée en ce moment par Open-Meteo (modèle météo, maille de quelques kilomètres),
+            en mm/h. Ce n'est pas une mesure : la mesure sur place vient du pluviomètre de la parcelle.
+          required: [ts, pluie_mm_h]
+          properties:
+            ts: { type: string, format: date-time }
+            pluie_mm_h: { type: number, minimum: 0 }
 
     # ---------------------------------------------------------- diagnostics
     Diagnostic:

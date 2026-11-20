@@ -1,5 +1,8 @@
 """Prévisions de pluie Open-Meteo, mises en cache dans PostgreSQL.
 
+Open-Meteo fournit aussi une estimation de la pluie en ce moment (cumul du dernier quart d'heure, calculé
+par modèle météo, sur une maille de quelques kilomètres) : elle complète le pluviomètre de la parcelle.
+
 Un cache de moins de 30 minutes est réutilisé sans appel réseau. Si Open-Meteo est injoignable,
 le dernier cache sert de secours pendant 6 heures ; au-delà, les prévisions sont indisponibles.
 """
@@ -25,6 +28,7 @@ class Previsions:
     source: str                 # "api" : données récentes ; "cache" : secours
     obtenues_le: datetime
     heures: list[dict]          # {"ts": datetime UTC, "pluie_mm": float, "probabilite_pluie": int | None}
+    actuelle: dict | None = None  # {"ts": datetime UTC, "pluie_mm_h": float} : estimation de la pluie en ce moment
 
     def couvre(self, maintenant: datetime, horizon_h: int) -> bool:
         """Vrai si les prévisions vont au moins jusqu'à la fin de l'horizon demandé."""
@@ -55,6 +59,16 @@ def _lire_reponse(j: dict) -> list[dict]:
     return heures
 
 
+def _lire_actuelle(j: dict) -> dict | None:
+    """Pluie estimée en ce moment, ramenée en mm/h ; None si Open-Meteo ne la fournit pas."""
+    c = j.get("current") or {}
+    if c.get("precipitation") is None or not c.get("time"):
+        return None
+    intervalle_s = c.get("interval") or 900
+    return {"ts": datetime.fromisoformat(c["time"]).replace(tzinfo=timezone.utc),
+            "pluie_mm_h": round(float(c["precipitation"]) * 3600 / intervalle_s, 2)}
+
+
 class ServiceMeteo:
     def __init__(self, pool, client: httpx.AsyncClient, ttl_s: int = 1800, age_max_s: int = 6 * 3600):
         self.pool, self.client = pool, client
@@ -74,25 +88,32 @@ class ServiceMeteo:
         try:
             r = await self.client.get(URL_OPEN_METEO, params={
                 "latitude": lat, "longitude": lon, "hourly": "precipitation,precipitation_probability",
-                "forecast_days": 2, "timezone": "UTC"})
+                "current": "precipitation", "forecast_days": 2, "timezone": "UTC"})
             r.raise_for_status()
             heures = _lire_reponse(r.json())
+            actuelle = _lire_actuelle(r.json())
         except (httpx.HTTPError, ValueError, KeyError, TypeError) as e:
             if cache and maintenant - cache["obtenues_le"] < self.age_max:
                 log.warning("Open-Meteo indisponible (%s) : utilisation du cache", type(e).__name__)
                 return self._depuis_cache(lat, lon, "cache", cache)
             raise MeteoIndisponible("Prévisions météo indisponibles") from e
 
-        donnees = [{**h, "ts": h["ts"].isoformat()} for h in heures]
+        donnees = {"heures": [{**h, "ts": h["ts"].isoformat()} for h in heures],
+                   "actuelle": actuelle and {**actuelle, "ts": actuelle["ts"].isoformat()}}
         async with self.pool.acquire() as con:
             await con.execute(
                 "INSERT INTO meteo_cache (lat, lon, donnees, obtenues_le) VALUES ($1, $2, $3, $4) "
                 "ON CONFLICT (lat, lon) DO UPDATE SET donnees = EXCLUDED.donnees, obtenues_le = EXCLUDED.obtenues_le",
                 *cle, donnees, maintenant)
-        return Previsions(lat, lon, "api", maintenant, heures)
+        return Previsions(lat, lon, "api", maintenant, heures, actuelle)
 
     @staticmethod
     def _depuis_cache(lat: float, lon: float, source: str, cache) -> Previsions:
         """Reconstruit des prévisions à partir d'une ligne de la table meteo_cache."""
-        heures = [{**h, "ts": datetime.fromisoformat(h["ts"])} for h in cache["donnees"]]
-        return Previsions(lat, lon, source, cache["obtenues_le"], heures)
+        donnees = cache["donnees"]
+        if isinstance(donnees, list):            # cache écrit avant l'ajout de la pluie actuelle
+            donnees = {"heures": donnees, "actuelle": None}
+        heures = [{**h, "ts": datetime.fromisoformat(h["ts"])} for h in donnees["heures"]]
+        a = donnees.get("actuelle")
+        actuelle = {**a, "ts": datetime.fromisoformat(a["ts"])} if a else None
+        return Previsions(lat, lon, source, cache["obtenues_le"], heures, actuelle)
