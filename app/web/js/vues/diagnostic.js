@@ -22,11 +22,11 @@ function carteResultat(d, surMaj) {
   const sain = d.classe === "Tomato___healthy";
   const actions = el("div", { class: "actions-form" });
   function rendreActions() {
-    actions.replaceChildren(d.confirme === null
+    actions.replaceChildren(...[d.confirme === null
       ? [el("span", { class: "muted" }, "Ce diagnostic correspond-il à ce que vous observez ?"),
          el("button", { class: "btn btn-secondaire btn-petit", type: "button", onclick: () => valider(false) }, "Non, infirmer"),
          el("button", { class: "btn btn-principal btn-petit", type: "button", onclick: () => valider(true) }, "Oui, confirmer")]
-      : el("span", { class: `badge ${d.confirme ? "badge-ok" : "badge-ko"}` }, d.confirme ? "Confirmé par l'exploitant" : "Infirmé par l'exploitant"));
+      : el("span", { class: `badge ${d.confirme ? "badge-ok" : "badge-ko"}` }, d.confirme ? "Confirmé par l'exploitant" : "Infirmé par l'exploitant")].flat());
   }
   async function valider(confirme) {
     try {
