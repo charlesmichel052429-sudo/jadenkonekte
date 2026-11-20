@@ -1578,7 +1578,7 @@ components:
               classe: { type: string }
               libelle: { type: string }
               score: { type: number }
-        modele: { type: [string, 'null'], example: mobilenetv3-small-2026-11-05 }
+        modele: { type: [string, 'null'], example: mobilenetv3-large-2026-11-20-8a12e224 }
         confirme: { type: [boolean, 'null'] }
         cree_le: { type: string, format: date-time }
         termine_le: { type: [string, 'null'], format: date-time }

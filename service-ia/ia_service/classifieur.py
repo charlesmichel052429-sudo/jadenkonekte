@@ -62,7 +62,10 @@ class Classifieur:
                 empreinte.update(poids.read_bytes())
             date = datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime("%Y-%m-%d")
             self.session, self.classes, self._signature = session, classes, signature
-            self.version = f"mobilenetv3-small-{date}-{empreinte.hexdigest()[:8]}"
+            # Architecture inscrite dans les métadonnées du fichier ONNX par entrainement.py (v2) ;
+            # le premier modèle n'en avait pas : c'était un MobileNetV3-Small.
+            architecture = session.get_modelmeta().custom_metadata_map.get("architecture", "mobilenetv3-small")
+            self.version = f"{architecture}-{date}-{empreinte.hexdigest()[:8]}"
             log.info("Modèle chargé : %s", self.version)
 
     @property

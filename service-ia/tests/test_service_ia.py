@@ -83,7 +83,7 @@ def test_prediction_top3_et_version(tmp_path):
     assert r["classe"] == "Tomato___classe_0" and r["libelle"] == "Mildiou (test)"
     scores = [r["score"]] + [a["score"] for a in r["alternatives"]]
     assert len(r["alternatives"]) == 2 and scores == sorted(scores, reverse=True) and 0 < sum(scores) <= 1
-    assert r["modele"].startswith("mobilenetv3-small-") and r["alternatives"][0]["libelle"].startswith("Tomato___")
+    assert r["modele"].startswith("mobilenetv3-") and r["alternatives"][0]["libelle"].startswith("Tomato___")
     vert = c.predire(pretraiter(charger(image(couleur=(20, 230, 20)))))
     assert vert["classe"] == "Tomato___classe_1"
 
