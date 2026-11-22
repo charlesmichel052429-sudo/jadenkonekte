@@ -1631,6 +1631,8 @@ components:
         gravite: { type: [string, 'null'] }
         commune: { type: [string, 'null'] }
         score: { type: [number, 'null'] }
+        lat: { type: [number, 'null'], description: "Position de la zone touchée, arrondie à environ 1 km" }
+        lon: { type: [number, 'null'] }
         recue_le: { type: string, format: date-time }
 
     PageAlertes:

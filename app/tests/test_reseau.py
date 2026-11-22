@@ -40,6 +40,15 @@ def test_webhook_signe_enregistre_une_seule_fois(client, alice):
     recues = client.get("/api/v1/alertes?origine=reseau&taille=100", headers=alice["h"]).json()["elements"]
     r = next(x for x in recues if x["id"] == a["id"])
     assert r["emetteur"] == "groupe-3" and r["statut"] == "recue" and r["commune"] == "Baillif"
+    assert r["lat"] is None and r["lon"] is None                 # pas de position dans cette alerte
+
+
+def test_alerte_recue_garde_sa_position_pour_la_carte(client, alice):
+    a = alerte_du_reseau(position={"lat": 16.05, "lon": -61.71})
+    assert webhook(client, a).status_code == 204
+    recues = client.get("/api/v1/alertes?origine=reseau&taille=100", headers=alice["h"]).json()["elements"]
+    r = next(x for x in recues if x["id"] == a["id"])
+    assert (r["lat"], r["lon"]) == (16.05, -61.71)
 
 
 def test_webhook_refuse_les_signatures_invalides(client):

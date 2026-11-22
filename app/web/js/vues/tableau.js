@@ -1,8 +1,9 @@
-// Tableau de bord : indicateurs, graphiques et toutes les parcelles accessibles, rafraîchis toutes les 30 secondes
+// Tableau de bord : indicateurs, graphiques, carte et toutes les parcelles accessibles, rafraîchis toutes les 30 secondes
 // (les graphiques toutes les 2 minutes).
 // Le flux temps réel est réservé à la page d'une parcelle, pour limiter les connexions ouvertes.
 import { api } from "../api.js";
 import { panneauGraphiques } from "../graphiques-tableau.js";
+import { panneauCarte } from "../carte-tableau.js";
 import { el, icone, enteteVue, etatVide, etatHumidite, valeurGrandeur, nombre, ilYa, dateHeure, toast, boutonOccupe, GRANDEURS } from "../util.js";
 
 const RAFRAICHISSEMENT_MS = 30000;
@@ -78,9 +79,11 @@ export default async function vueTableau(racine, _params, { profil }) {
   const kpis = el("div", { class: "grille-kpi" });
   const reseau = el("div");
   const graphiques = el("div");
+  const carte = panneauCarte();
   let panneau = null, derniersGraphiques = 0;
   racine.append(enteteVue(`Bonjour ${profil.prenom}`, "Vue d'ensemble de vos parcelles connectées.",
-    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")), kpis, graphiques, zone, reseau);
+    el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")),
+    kpis, graphiques, zone, carte.racine, reseau);
   panneauReseau(reseau, profil.role === "administrateur").catch(() => reseau.replaceChildren());
 
   async function charger() {
@@ -89,6 +92,7 @@ export default async function vueTableau(racine, _params, { profil }) {
     if (!parcelles.length) {
       kpis.replaceChildren();
       graphiques.replaceChildren();
+      carte.racine.hidden = true;
       zone.replaceChildren(etatVide("carte", "Aucune parcelle pour l'instant",
         "Créez une exploitation et ses parcelles : leurs capteurs et leur vanne seront déclarés automatiquement.",
         el("a", { class: "btn btn-principal", href: "#/exploitations" }, "Créer ma première parcelle")));
@@ -117,6 +121,10 @@ export default async function vueTableau(racine, _params, { profil }) {
     });
     zone.replaceChildren(...groupes.filter(Boolean));
 
+    carte.racine.hidden = false;
+    const alertes = await api("/alertes?taille=50").then((r) => r.elements).catch(() => []);
+    carte.maj(exploitations, parcelles, details, alertes);
+
     if (Date.now() - derniersGraphiques >= RAFRAICHISSEMENT_GRAPHIQUES_MS - 1000) {
       derniersGraphiques = Date.now();
       if (!panneau) { panneau = panneauGraphiques(); graphiques.replaceChildren(panneau.racine); }
@@ -126,5 +134,5 @@ export default async function vueTableau(racine, _params, { profil }) {
 
   await charger();
   const minuterie = setInterval(() => charger().catch(() => {}), RAFRAICHISSEMENT_MS);
-  return () => { clearInterval(minuterie); panneau?.detruire(); };
+  return () => { clearInterval(minuterie); panneau?.detruire(); carte.detruire(); };
 }

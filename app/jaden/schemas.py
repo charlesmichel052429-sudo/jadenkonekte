@@ -352,6 +352,8 @@ class AlerteReseau(BaseModel):
     gravite: str | None = None
     commune: str | None = None
     score: float | None = None
+    lat: float | None = None
+    lon: float | None = None
     recue_le: datetime
 
 

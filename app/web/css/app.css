@@ -419,3 +419,17 @@ details[open] > summary { margin-bottom: 1rem; }
 @media (max-width: 860px) { .grille-graphiques { grid-template-columns: 1fr; } }
 .meteo-actuelle { margin: .8rem 0 .2rem; padding: .55rem .7rem; border-radius: 10px; background: var(--eau-clair); font-size: .88rem; }
 .meteo-actuelle strong { color: var(--eau); }
+
+/* Carte des exploitations */
+.panneau-carte { margin-top: 2rem; }
+.carte-leaflet { height: 380px; border-radius: 12px; overflow: hidden; border: 1px solid var(--trait); z-index: 0; }
+.leaflet-container { font-family: var(--texte-police); }
+.popup-carte ul { margin: .4rem 0 0; padding-left: 1rem; }
+.legende-carte { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin: .7rem 0 0; font-size: .85rem; }
+.legende-carte-item { display: inline-flex; align-items: center; gap: .35rem; }
+.pastille-carte { width: .8rem; height: .8rem; border-radius: 50%; display: inline-block; }
+.pastille-carte.etat-critique { background: var(--rouge); }
+.pastille-carte.etat-vigilance { background: var(--soleil); }
+.pastille-carte.etat-bon { background: var(--feuille); }
+.pastille-carte.etat-humide { background: var(--eau); }
+.pastille-carte.pastille-alerte { background: var(--rouge-clair); border: 1px solid var(--rouge); }

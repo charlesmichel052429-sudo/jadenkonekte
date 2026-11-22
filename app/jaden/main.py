@@ -28,7 +28,8 @@ VERSION = "1.0.0"
 DOSSIER_WEB = Path(__file__).resolve().parent.parent / "web"
 
 # Politique de sécurité de l'interface : aucun script externe ni en ligne, connexions vers la même origine.
-CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+# Seule exception : les images des tuiles OpenStreetMap de la carte des parcelles.
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; "
        "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 
 DEMO = {"code": "expl-1", "nom": "Exploitation de démonstration (simulateur)", "commune": "Petit-Bourg",
@@ -133,7 +134,8 @@ async def entetes_de_securite(request: Request, call_next):
     if not request.url.path.startswith(("/docs", "/openapi.json")):
         reponse.headers["Content-Security-Policy"] = CSP
     reponse.headers["X-Content-Type-Options"] = "nosniff"
-    reponse.headers["Referrer-Policy"] = "no-referrer"
+    # OpenStreetMap refuse les tuiles sans en-tête Referer : seule l'origine du site est transmise
+    reponse.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     if not request.url.path.startswith("/api/"):
         reponse.headers["Cache-Control"] = "no-cache"
     return reponse

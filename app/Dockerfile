@@ -13,8 +13,10 @@ COPY app/pytest.ini /app/pytest.ini
 COPY app/jaden /app/jaden
 COPY app/web /app/web
 COPY app/tests /app/tests
-# Chart.js est intégré à l'image : l'interface ne dépend d'aucun site externe
+# Chart.js et Leaflet sont intégrés à l'image (versions figées) : aucun script chargé depuis un autre site
 ADD https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js /app/web/vendor/chart.umd.min.js
-RUN chmod 644 /app/web/vendor/chart.umd.min.js && mkdir -p /donnees/diagnostics && chown -R 1000:1000 /donnees
+ADD https://unpkg.com/leaflet@1.9.4/dist/leaflet.js /app/web/vendor/leaflet.js
+ADD https://unpkg.com/leaflet@1.9.4/dist/leaflet.css /app/web/vendor/leaflet.css
+RUN chmod 644 /app/web/vendor/* && mkdir -p /donnees/diagnostics && chown -R 1000:1000 /donnees
 USER 1000
 CMD ["uvicorn", "jaden.main:app", "--host", "0.0.0.0", "--port", "8000"]

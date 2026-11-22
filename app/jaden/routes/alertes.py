@@ -54,8 +54,12 @@ async def lister_alertes(_: Utilisateur, con: Connexion, pg: Paginer,
     rows = await con.fetch("SELECT * FROM alerte WHERE $1::text IS NULL OR origine = $1 "
                            "ORDER BY recue_le DESC LIMIT $2 OFFSET $3", origine, pg.taille, pg.decalage)
     champs = ("id", "origine", "statut", "emetteur", "type", "culture", "maladie", "gravite", "commune", "recue_le")
-    elements = [{**{k: r[k] for k in champs}, "score": r["contenu"].get("score"),
-                 "libelle": libelles().get(r["maladie"], r["maladie"])} for r in rows]
+    elements = []
+    for r in rows:
+        position = r["contenu"].get("position") or {}   # arrondie à ~1 km par l'émetteur ; absente parfois
+        elements.append({**{k: r[k] for k in champs}, "score": r["contenu"].get("score"),
+                         "lat": position.get("lat"), "lon": position.get("lon"),
+                         "libelle": libelles().get(r["maladie"], r["maladie"])})
     return pg.enveloppe(elements, total)
 
 

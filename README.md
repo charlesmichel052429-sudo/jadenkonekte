@@ -114,6 +114,7 @@ docker compose exec -T app python -m jaden.evaluation --pause 8 > ia/rag/evaluat
 | Complément | Où | Fonctionnement |
 |---|---|---|
 | Réseau régional d'alertes | `app/jaden/reseau.py`, `routes/alertes.py` | alerte publiée quand l'exploitant confirme un diagnostic fiable ; réception par webhook signé HMAC-SHA256. Essai local : `COMPOSE_PROFILES=reseau` (serveur central sur <http://localhost:8081/docs>) |
+| Carte des exploitations | `app/web/js/carte-tableau.js` | carte Leaflet (tuiles OpenStreetMap) sur le tableau de bord : chaque exploitation colorée selon sa parcelle la plus sèche, alertes du réseau autour de leur position |
 | Détection d'anomalies | `app/jaden/validation.py` (`zscore`) | z-score sur les 60 dernières mesures valides ; une valeur à 4 écarts-types est conservée mais signalée |
 
 ## Tests
