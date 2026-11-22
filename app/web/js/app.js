@@ -105,3 +105,8 @@ async function naviguer() {
 
 window.addEventListener("hashchange", naviguer);
 naviguer();
+
+// Application installable et utilisable hors connexion (sw.js)
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch((e) => console.warn("Service worker non enregistré", e));
+}

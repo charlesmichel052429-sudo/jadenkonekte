@@ -83,7 +83,7 @@ export default async function vueTableau(racine, _params, { profil }) {
   let panneau = null, derniersGraphiques = 0;
   racine.append(enteteVue(`Bonjour ${profil.prenom}`, "Vue d'ensemble de vos parcelles connectées.",
     el("a", { class: "btn btn-secondaire", href: "#/exploitations" }, icone("plus"), "Gérer les parcelles")),
-    kpis, graphiques, zone, carte.racine, reseau);
+    kpis, carte.racine, graphiques, zone, reseau);
   panneauReseau(reseau, profil.role === "administrateur").catch(() => reseau.replaceChildren());
 
   async function charger() {

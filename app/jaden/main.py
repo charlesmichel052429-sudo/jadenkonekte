@@ -1,6 +1,7 @@
 """Point d'entrée : API REST, tâches de fond (ingestion MQTT, règles, indexation) et interface web."""
 import asyncio
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -24,6 +25,8 @@ from .securite import hacher
 from .temps_reel import Diffuseur
 
 log = logging.getLogger(__name__)
+# Type absent de certaines tables système ; avec « nosniff », un manifeste mal typé serait ignoré
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 VERSION = "1.0.0"
 DOSSIER_WEB = Path(__file__).resolve().parent.parent / "web"
 

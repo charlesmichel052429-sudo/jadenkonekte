@@ -27,7 +27,10 @@ export function panneauCarte() {
 
   function maj(exploitations, parcelles, details, alertes) {
     const L = window.L;
-    if (!L) { racine.hidden = true; return; }   // Leaflet non chargé : on n'affiche pas un cadre vide
+    if (!L) {   // Leaflet non chargé (ancienne page encore en mémoire, par exemple) : on le dit plutôt qu'un cadre vide
+      noeud.replaceChildren(el("p", { class: "muted" }, "La carte n'a pas pu se charger. Rechargez la page."));
+      return;
+    }
     if (!carte) {
       carte = L.map(noeud, { scrollWheelZoom: false }).setView(GUADELOUPE, 9);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
