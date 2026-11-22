@@ -31,7 +31,6 @@ class Previsions:
     actuelle: dict | None = None  # {"ts": datetime UTC, "pluie_mm_h": float} : estimation de la pluie en ce moment
 
     def couvre(self, maintenant: datetime, horizon_h: int) -> bool:
-        """Vrai si les prévisions vont au moins jusqu'à la fin de l'horizon demandé."""
         return bool(self.heures) and self.heures[-1]["ts"] >= maintenant + timedelta(hours=horizon_h)
 
     def prochaines(self, maintenant: datetime, horizon_h: int) -> list[dict]:
@@ -40,12 +39,10 @@ class Previsions:
         return [h for h in self.heures if maintenant < h["ts"] <= fin]
 
     def cumul(self, maintenant: datetime, horizon_h: int) -> float:
-        """Cumul de pluie prévu sur l'horizon, en millimètres."""
         return round(sum(h["pluie_mm"] for h in self.prochaines(maintenant, horizon_h)), 2)
 
 
 def _lire_reponse(j: dict) -> list[dict]:
-    """Extrait les prévisions horaires d'une réponse Open-Meteo."""
     h = j["hourly"]
     probabilites = h.get("precipitation_probability") or [None] * len(h["time"])
     heures = []
@@ -75,7 +72,6 @@ class ServiceMeteo:
         self.ttl, self.age_max = timedelta(seconds=ttl_s), timedelta(seconds=age_max_s)
 
     async def previsions(self, lat: float, lon: float, maintenant: datetime | None = None) -> Previsions:
-        """Renvoie les prévisions d'une position, depuis le cache ou depuis Open-Meteo."""
         maintenant = maintenant or datetime.now(timezone.utc)
         lat, lon = round(lat, 2), round(lon, 2)
         # Clé en Decimal : un float comme 14.63 ne serait pas égal à la valeur NUMERIC stockée.
@@ -109,7 +105,6 @@ class ServiceMeteo:
 
     @staticmethod
     def _depuis_cache(lat: float, lon: float, source: str, cache) -> Previsions:
-        """Reconstruit des prévisions à partir d'une ligne de la table meteo_cache."""
         donnees = cache["donnees"]
         if isinstance(donnees, list):            # cache écrit avant l'ajout de la pluie actuelle
             donnees = {"heures": donnees, "actuelle": None}

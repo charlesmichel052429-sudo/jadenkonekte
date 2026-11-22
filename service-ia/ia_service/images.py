@@ -25,7 +25,6 @@ class ImageInvalide(ValueError):
 
 
 def charger(donnees: bytes) -> Image.Image:
-    """Vérifie la taille, le format et l'intégrité d'une image, puis la renvoie en RVB."""
     if len(donnees) > TAILLE_MAX_OCTETS:
         raise ImageInvalide(413, "Image trop volumineuse (5 Mo maximum)")
     if not (donnees.startswith(b"\xff\xd8\xff") or donnees.startswith(b"\x89PNG\r\n\x1a\n")):
@@ -44,7 +43,6 @@ def charger(donnees: bytes) -> Image.Image:
 
 
 def pretraiter(img: Image.Image) -> np.ndarray:
-    """Transforme une image RVB en tenseur 1 x 3 x 224 x 224 normalisé."""
     largeur, hauteur = img.size
     if largeur <= hauteur:
         nl, nh = REDIM, int(REDIM * hauteur / largeur)

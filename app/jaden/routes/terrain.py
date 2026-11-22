@@ -32,9 +32,8 @@ INTERVALLES = {"5m": timedelta(minutes=5), "15m": timedelta(minutes=15), "1h": t
                "6h": timedelta(hours=6), "1d": timedelta(days=1)}
 
 
-# ---------------------------------------------------------------- exploitations
+# Exploitations
 def _exploitation(r) -> dict:
-    """Représentation JSON d'une exploitation."""
     return {k: r[k] for k in ("id", "code", "nom", "commune", "lat", "lon")}
 
 
@@ -84,7 +83,7 @@ async def supprimer_exploitation(exploitation_id: int, u: Utilisateur, con: Conn
     return Response(status_code=204)
 
 
-# ---------------------------------------------------------------- parcelles
+# Parcelles
 def _sql_parcelles(condition: str) -> str:
     """Requête des parcelles avec leur topic MQTT et leur état de connexion."""
     return f"""
@@ -111,7 +110,6 @@ async def creer_parcelle_complete(con, exploitation_id: int, code: str, nom: str
 
 
 async def _lire_parcelle(con, parcelle_id: int) -> dict:
-    """Représentation JSON d'une parcelle."""
     return dict(await con.fetchrow(_sql_parcelles("p.id = $1"), parcelle_id))
 
 
@@ -163,7 +161,7 @@ async def supprimer_parcelle(parcelle_id: int, u: Utilisateur, con: Connexion):
     return Response(status_code=204)
 
 
-# ---------------------------------------------------------------- capteurs et mesures
+# Capteurs et mesures
 def _sql_capteurs(condition: str) -> str:
     """Requête des capteurs avec leur dernière mesure valide et leur état de connexion."""
     return f"""
@@ -179,7 +177,6 @@ def _sql_capteurs(condition: str) -> str:
 
 
 def _capteur(r) -> dict:
-    """Représentation JSON d'un capteur."""
     sortie = {k: r[k] for k in ("id", "type", "grandeur", "unite", "min_valide", "max_valide", "actif", "en_ligne")}
     sortie["parcelle_id"] = r["parcelle"]
     sortie["derniere_mesure"] = None if r["dm_ts"] is None else {

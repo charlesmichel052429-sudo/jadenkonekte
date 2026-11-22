@@ -18,7 +18,6 @@ class ModeleIndisponible(RuntimeError):
 
 
 def softmax(logits: np.ndarray) -> np.ndarray:
-    """Convertit les sorties brutes du réseau en probabilités."""
     e = np.exp(logits - logits.max())
     return e / e.sum()
 
@@ -70,7 +69,6 @@ class Classifieur:
 
     @property
     def pret(self) -> bool:
-        """Vrai si le modèle est disponible et chargé."""
         try:
             self._charger_si_besoin()
             return True
@@ -78,7 +76,6 @@ class Classifieur:
             return False
 
     def predire(self, x: np.ndarray, k: int = 3) -> dict:
-        """Renvoie la classe la plus probable, son score et les k-1 hypothèses suivantes."""
         self._charger_si_besoin()
         entree = self.session.get_inputs()[0].name
         probabilites = softmax(self.session.run(None, {entree: x})[0][0].astype(np.float64))

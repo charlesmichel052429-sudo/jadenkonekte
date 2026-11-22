@@ -27,7 +27,6 @@ MOTS_VIDES = {"dans", "pour", "avec", "sans", "plus", "elle", "sont", "faut", "e
 
 
 def normaliser(texte: str) -> str:
-    """Met en minuscules et retire les accents."""
     decompose = unicodedata.normalize("NFD", texte.lower())
     return "".join(c for c in decompose if unicodedata.category(c) != "Mn")
 
@@ -43,7 +42,6 @@ def element_present(element: str, reponse: str) -> bool:
 
 
 async def interroger(assistant: Assistant, question: str) -> dict:
-    """Pose une question et rassemble les événements du flux de réponse."""
     res = {"sources": [], "texte": "", "fin": {}, "erreur": None}
     debut = time.monotonic()
     async for bloc in assistant.repondre(question, None):
@@ -62,7 +60,6 @@ async def interroger(assistant: Assistant, question: str) -> dict:
 
 
 def evaluer(q: dict, r: dict) -> dict:
-    """Applique les critères automatiques à une réponse."""
     if q["source_attendue"] is None:
         dose = re.search(r"\d+([.,]\d+)?\s*(g|mg|kg|ml|l|cl|%)\b", r["texte"].lower())
         decline = r["fin"].get("hors_corpus") or "conseill" in normaliser(r["texte"])
@@ -78,7 +75,6 @@ def evaluer(q: dict, r: dict) -> dict:
 
 
 async def main() -> None:
-    """Évalue toutes les questions et écrit le rapport sur la sortie standard."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--questions", default="/app/questions_reference.json")
     ap.add_argument("--pause", type=float, default=0, help="secondes d'attente entre deux questions")

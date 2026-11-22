@@ -10,13 +10,11 @@ class Diffuseur:
         self._abonnes: dict[int, set[asyncio.Queue]] = defaultdict(set)
 
     def abonner(self, parcelle_id: int) -> asyncio.Queue:
-        """Crée la file d'un nouvel abonné aux événements d'une parcelle."""
         file: asyncio.Queue = asyncio.Queue(maxsize=200)
         self._abonnes[parcelle_id].add(file)
         return file
 
     def desabonner(self, parcelle_id: int, file: asyncio.Queue) -> None:
-        """Retire un abonné quand son flux SSE est fermé."""
         self._abonnes[parcelle_id].discard(file)
         if not self._abonnes[parcelle_id]:
             del self._abonnes[parcelle_id]

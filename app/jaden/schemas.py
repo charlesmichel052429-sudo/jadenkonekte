@@ -32,12 +32,10 @@ class Modification(Entree):
         return self
 
     def champs(self) -> dict:
-        """Champs effectivement envoyés par le client."""
         return self.model_dump(exclude_unset=True)
 
 
 def _courriel(valeur: str) -> str:
-    """Valide une adresse de courriel et la met en minuscules."""
     if not COURRIEL.match(valeur):
         raise ValueError("Adresse de courriel invalide")
     return valeur.lower()
@@ -50,7 +48,7 @@ class Page(BaseModel, Generic[T]):
     taille: int
 
 
-# ---------------------------------------------------------------- utilisateurs
+# Utilisateurs
 class UtilisateurCreation(Entree):
     prenom: str = Field(min_length=1, max_length=40)
     nom: str = Field(min_length=1, max_length=40)
@@ -86,7 +84,7 @@ class Jeton(BaseModel):
     expire_dans: int
 
 
-# ---------------------------------------------------------------- exploitations et parcelles
+# Exploitations et parcelles
 class ExploitationCreation(Entree):
     code: CodeMqtt
     nom: str = Field(min_length=1, max_length=80)
@@ -137,7 +135,7 @@ class Parcelle(BaseModel):
     statut_depuis: datetime | None = None
 
 
-# ---------------------------------------------------------------- capteurs et mesures
+# Capteurs et mesures
 class CapteurCreation(Entree):
     type: TypeCapteur
     grandeur: Grandeur
@@ -191,7 +189,7 @@ class Agregat(BaseModel):
     nombre: int
 
 
-# ---------------------------------------------------------------- équipements et commandes
+# Équipements et commandes
 class Equipement(BaseModel):
     id: int
     parcelle_id: int
@@ -227,7 +225,7 @@ class Commande(BaseModel):
     confirmee_le: datetime | None = None
 
 
-# ---------------------------------------------------------------- règles d'arrosage
+# Règles d'arrosage
 class RegleCreation(Entree):
     nom: str = Field(min_length=1, max_length=80)
     seuil_humidite: float = Field(ge=0, le=100)
@@ -294,7 +292,7 @@ class Previsions(BaseModel):
     pluie_actuelle: PluieActuelle | None = None
 
 
-# ---------------------------------------------------------------- diagnostics
+# Diagnostics
 class AlternativeDiagnostic(BaseModel):
     classe: str
     libelle: str
@@ -327,7 +325,7 @@ class DiagnosticModification(Entree):
     confirme: bool
 
 
-# ---------------------------------------------------------------- assistant
+# Assistant
 class Question(Entree):
     question: str = Field(min_length=3, max_length=1000)
     parcelle_id: int | None = Field(default=None, ge=1)
@@ -341,7 +339,7 @@ class Passage(BaseModel):
     score: float
 
 
-# ---------------------------------------------------------------- réseau régional
+# Réseau régional
 class AlerteReseau(BaseModel):
     id: str
     origine: Literal["locale", "reseau"]

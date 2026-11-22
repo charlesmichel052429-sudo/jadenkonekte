@@ -18,20 +18,17 @@ CHAMPS_REGLE = ("id", "nom", "seuil_humidite", "pluie_max_mm", "horizon_h", "dur
 
 
 def _equipement(r) -> dict:
-    """Représentation JSON d'un équipement."""
     return {"id": r["id"], "parcelle_id": r["parcelle"], "type": r["type"], "etat": r["etat"],
             "ouverte_jusqua": r["ouverte_jusqua"], "derniere_commande_id": r["derniere_cmd"], "maj_le": r["maj_le"]}
 
 
 def _commande(r) -> dict:
-    """Représentation JSON d'une commande."""
     return {"id": r["id"], "equipement_id": r["equipement"], "action": r["action"], "duree_s": r["duree_s"],
             "origine": r["origine"], "auteur_id": r["auteur"], "statut": r["statut"],
             "cree_le": r["cree_le"], "confirmee_le": r["confirmee_le"]}
 
 
 def _regle(r) -> dict:
-    """Représentation JSON d'une règle d'arrosage."""
     return {**{k: r[k] for k in CHAMPS_REGLE}, "parcelle_id": r["parcelle"]}
 
 

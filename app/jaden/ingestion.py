@@ -25,7 +25,6 @@ class CapteurConnu:
 
 
 def _nombre(x):
-    """Convertit une valeur NUMERIC de PostgreSQL en float, en conservant None."""
     return None if x is None else float(x)
 
 
@@ -66,13 +65,11 @@ class Ingesteur:
         return self.capteurs.get(cle)
 
     async def _parcelle(self, cle) -> int | None:
-        """Identifiant de la parcelle désignée par (exploitation, parcelle)."""
         if cle not in self.parcelles:
             await self.recharger()
         return self.parcelles.get(cle)
 
     async def traiter(self, topic: str, charge: bytes) -> None:
-        """Aiguille un message MQTT vers le traitement correspondant à son topic."""
         parties = topic.split("/")
         if len(parties) == 4 and parties[0] == "jaden" and parties[3] == "statut":
             await self._statut(parties[1], parties[2], charge)
@@ -88,7 +85,6 @@ class Ingesteur:
             self.compteurs["topic_inconnu"] += 1
 
     async def _mesure(self, expl: str, parc: str, type_: str, grandeur: str, charge: bytes) -> None:
-        """Valide une mesure, l'enregistre et la diffuse aux tableaux de bord."""
         capteur = await self._capteur((expl, parc, type_, grandeur))
         if capteur is None:
             self.compteurs["capteur_inconnu"] += 1

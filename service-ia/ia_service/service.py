@@ -26,7 +26,6 @@ CHARGEMENT = threading.Lock()
 
 
 def plongeur() -> Plongeur:
-    """Charge le modèle d'embeddings au premier appel et le garde en mémoire."""
     with CHARGEMENT:                                   # un seul chargement, même si deux appels arrivent ensemble
         if app.state.plongeur is None:
             app.state.plongeur = Plongeur(Path(os.getenv("EMBEDDINGS_DOSSIER", "/embeddings")), FILS)
@@ -34,13 +33,11 @@ def plongeur() -> Plongeur:
 
 
 def probleme(status: int, detail: str) -> JSONResponse:
-    """Réponse d'erreur au format Problem Details."""
     return JSONResponse({"type": "about:blank", "title": "Erreur", "status": status, "detail": detail},
                         status_code=status, media_type="application/problem+json")
 
 
 def _diagnostiquer(donnees: bytes) -> dict:
-    """Chaîne complète d'un diagnostic : validation, prétraitement, classification."""
     return app.state.classifieur.predire(pretraiter(charger(donnees)))
 
 

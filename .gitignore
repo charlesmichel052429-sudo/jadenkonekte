@@ -11,6 +11,7 @@ __pycache__/
 # IA : données et modèles volumineux (régénérables par les scripts)
 ia/cnn/donnees/
 ia/cnn/donnees_terrain/
+ia/cnn/donnees_mendeley/
 ia/cnn/candidat/
 ia/cnn/PlantVillage*/
 ia/cnn/*.pt

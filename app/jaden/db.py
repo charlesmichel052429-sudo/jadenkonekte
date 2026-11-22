@@ -5,13 +5,11 @@ import asyncpg
 
 
 async def _init_connexion(con: asyncpg.Connection) -> None:
-    """Convertit automatiquement les colonnes json/jsonb en objets Python."""
     for type_ in ("json", "jsonb"):
         await con.set_type_codec(type_, encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
 async def creer_pool(dsn: str) -> asyncpg.Pool:
-    """Ouvre le pool de connexions partagé par toute l'application."""
     return await asyncpg.create_pool(dsn, init=_init_connexion, min_size=1, max_size=10)
 
 

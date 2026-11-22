@@ -11,7 +11,6 @@ def _texte(nom: str, defaut: str | None = None) -> str | None:
 
 
 def _entier(nom: str, defaut: int) -> int:
-    """Renvoie la variable d'environnement convertie en entier."""
     return int(_texte(nom, str(defaut)))
 
 
@@ -68,7 +67,6 @@ class Config:
 
 @lru_cache
 def config() -> Config:
-    """Construit la configuration une seule fois pour tout le processus."""
     return Config(
         database_url=os.environ["DATABASE_URL"],
         jwt_secret=_texte("JWT_SECRET", ""),

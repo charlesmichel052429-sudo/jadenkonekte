@@ -11,9 +11,10 @@ reconnaissait mal les vraies photos. Trois changements :
 Données (une classe = un dossier, noms de classes PlantVillage) :
     donnees/train, donnees/val                 PlantVillage   (preparer_donnees.py)
     donnees_terrain/train, donnees_terrain/test PlantDoc       (preparer_plantdoc.py)
+    donnees_mendeley/train, donnees_mendeley/test Mendeley Data (preparer_mendeley.py)
 
     pip install torch torchvision onnx onnxruntime onnxscript
-    python entrainement.py --epoques 8 --sortie candidat/tomate_mobilenetv3.onnx
+    python entrainement.py --epoques 8 --images-par-epoque 6000 --sortie candidat/tomate_mobilenetv3.onnx
 
 Le choix de la meilleure époque se fait sur une partie des photos PlantDoc d'entraînement mise de côté :
 le jeu PlantDoc « test » reste intact pour l'évaluation finale (evaluer.py).
@@ -105,14 +106,18 @@ def exactitude(modele, dl, dev) -> float:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--donnees", default="donnees")
-    ap.add_argument("--terrain", default="donnees_terrain")
+    ap.add_argument("--terrain", nargs="+", default=["donnees_terrain", "donnees_mendeley"],
+                    help="dossiers de photos réelles (chacun avec train/ et test/)")
     ap.add_argument("--architecture", choices=["large", "small"], default="large")
     ap.add_argument("--epoques", type=int, default=8)
     ap.add_argument("--lot", type=int, default=32)
     ap.add_argument("--images-par-epoque", type=int, default=6000)
-    ap.add_argument("--max-par-classe", type=int, default=800, help="images PlantVillage gardées par classe")
-    ap.add_argument("--poids-terrain", type=float, default=3.0, help="surreprésentation des photos réelles")
+    ap.add_argument("--max-par-classe", type=int, default=1500, help="images PlantVillage gardées par classe")
+    ap.add_argument("--poids-terrain", type=float, default=5.0, help="surreprésentation des photos réelles")
     ap.add_argument("--sortie", default="candidat/tomate_mobilenetv3.onnx")
+    ap.add_argument("--exporter-seulement", action="store_true",
+                    help="exporte en ONNX le point de sauvegarde existant sans réentraîner")
+    ap.add_argument("--processus", type=int, default=2, help="processus de chargement des images")
     a = ap.parse_args()
     random.seed(0)
     np.random.seed(0)
@@ -122,7 +127,7 @@ def main() -> None:
 
     classes = sorted(d.name for d in (Path(a.donnees) / "train").iterdir() if d.is_dir())
     labo = lister(Path(a.donnees) / "train", classes, a.max_par_classe)
-    terrain = lister(Path(a.terrain) / "train", classes)
+    terrain = [e for d in a.terrain if (Path(d) / "train").is_dir() for e in lister(Path(d) / "train", classes)]
     random.shuffle(terrain)
     nb_choix = len(terrain) // 7                       # ~15 % des photos réelles réservées au choix de l'époque
     terrain_choix, terrain = terrain[:nb_choix], terrain[nb_choix:]
@@ -147,14 +152,14 @@ def main() -> None:
     ds_labo = Images(labo, tf_train, fonds, p_fond=0.6)
     ds_terrain = Images(terrain, tf_train)
     ds_train = torch.utils.data.ConcatDataset([ds_labo, ds_terrain])
-    # Échantillonnage : chaque classe pèse autant ; avec poids-terrain = 3, environ 40 % des images vues
-    # à chaque époque sont des photos réelles, bien qu'elles ne soient que quelques centaines
+    # Échantillonnage : chaque classe pèse autant ; avec poids-terrain = 5, environ 55 % des images vues
+    # à chaque époque sont des photos réelles (PlantDoc et Mendeley)
     n_labo, n_terrain = Counter(c for _, c in labo), Counter(c for _, c in terrain)
     poids = [1 / n_labo[c] for _, c in labo] + [a.poids_terrain / max(n_terrain[c], 1) / 4 for _, c in terrain]
     sampler = WeightedRandomSampler(poids, a.images_par_epoque, replacement=True)
-    dl_train = DataLoader(ds_train, batch_size=a.lot, sampler=sampler, num_workers=4, persistent_workers=True)
-    dl_choix = DataLoader(Images(terrain_choix, tf_val), batch_size=64, num_workers=2)
-    dl_labo = DataLoader(Images(val_labo, tf_val), batch_size=64, num_workers=2)
+    dl_train = DataLoader(ds_train, batch_size=a.lot, sampler=sampler, num_workers=a.processus, persistent_workers=True)
+    dl_choix = DataLoader(Images(terrain_choix, tf_val), batch_size=64, num_workers=1)
+    dl_labo = DataLoader(Images(val_labo, tf_val), batch_size=64, num_workers=1)
 
     if a.architecture == "large":
         modele = models.mobilenet_v3_large(weights=models.MobileNet_V3_Large_Weights.DEFAULT)
@@ -168,7 +173,12 @@ def main() -> None:
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=6e-4, total_steps=pas_total, pct_start=0.15)
     perte = nn.CrossEntropyLoss(label_smoothing=0.1)
 
+    sortie = Path(a.sortie)
+    sortie.parent.mkdir(parents=True, exist_ok=True)
+    sauvegarde = sortie.with_suffix(".pt")      # meilleur état, écrit à chaque progrès : un plantage ne perd rien
     meilleur, meilleur_etat = -1.0, None
+    if a.exporter_seulement:
+        a.epoques, meilleur_etat = 0, torch.load(sauvegarde, map_location="cpu")
     for ep in range(1, a.epoques + 1):
         debut = time.time()
         modele.train()
@@ -182,13 +192,12 @@ def main() -> None:
         marque = ""
         if reel > meilleur:
             meilleur, meilleur_etat, marque = reel, {k: v.detach().clone() for k, v in modele.state_dict().items()}, "  ← meilleure"
+            torch.save(meilleur_etat, sauvegarde)
         print(f"époque {ep}/{a.epoques} ({time.time() - debut:.0f} s) — photos réelles : {reel:.3f} · "
               f"labo : {labo_ok:.3f}{marque}", flush=True)
 
     modele.load_state_dict(meilleur_etat)
     modele.eval().cpu()
-    sortie = Path(a.sortie)
-    sortie.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         modele, torch.randn(1, 3, TAILLE, TAILLE), str(sortie),
         input_names=["image"], output_names=["logits"],

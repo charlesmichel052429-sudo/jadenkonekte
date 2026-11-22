@@ -36,7 +36,6 @@ class _Reessai(Exception):
 
 
 def message_utilisateur(question: str, passages: list[dict], culture: str | None = None) -> str:
-    """Construit le message envoyé au LLM : les extraits numérotés, puis la question."""
     extraits = "\n".join(
         f'<extrait numero="{i}" source="{p["source"]}" section="{p["section"]}">\n{p["contenu"]}\n</extrait>'
         for i, p in enumerate(passages, start=1))
@@ -52,7 +51,6 @@ class Groq:
         self.client = client or httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=120.0))
 
     async def flux(self, systeme: str, message: str) -> AsyncIterator[str]:
-        """Renvoie la réponse du modèle morceau par morceau, avec reprise sur quota ou coupure réseau."""
         if not self.cle:
             raise LLMIndisponible("clé GROQ_API_KEY absente")
         corps = {"model": self.modele, "stream": True, "temperature": 0.2, "max_completion_tokens": 2048,
@@ -71,7 +69,6 @@ class Groq:
                 await asyncio.sleep(e.attente)
 
     async def _requete(self, corps: dict) -> AsyncIterator[str]:
-        """Envoie une requête et lit le flux SSE « data: {...} » jusqu'à « data: [DONE] »."""
         entetes = {"Authorization": f"Bearer {self.cle}"}
         try:
             async with self.client.stream("POST", URL_GROQ, json=corps, headers=entetes) as r:

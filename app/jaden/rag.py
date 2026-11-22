@@ -60,7 +60,6 @@ def decouper(nom_fichier: str, texte: str, taille_max: int = 1500) -> list[Passa
 
 
 def _couper(texte: str, taille_max: int) -> list[str]:
-    """Coupe un texte trop long entre deux paragraphes."""
     if len(texte) <= taille_max:
         return [texte]
     morceaux, courant = [], ""
@@ -75,7 +74,6 @@ def _couper(texte: str, taille_max: int) -> list[str]:
 
 
 def vecteur_sql(v: list[float]) -> str:
-    """Écrit un vecteur au format texte attendu par pgvector."""
     return "[" + ",".join(f"{x:.7f}" for x in v) + "]"
 
 
@@ -123,13 +121,11 @@ class Assistant:
         self.pool, self.client, self.llm, self.c = pool, client, llm, c
 
     async def embeddings(self, textes: list[str]) -> list[list[float]]:
-        """Demande au service d'inférence les embeddings d'une liste de textes."""
         r = await self.client.post(f"{self.c.ia_url}/embeddings", json={"textes": textes}, timeout=120)
         r.raise_for_status()
         return r.json()["vecteurs"]
 
     async def indexer(self) -> int:
-        """Réindexe toutes les fiches du dossier dans la table `passage` ; renvoie le nombre de passages."""
         passages = []
         for fichier in sorted(Path(self.c.fiches_dossier).glob("*.md")):
             passages += decouper(fichier.name, fichier.read_text(encoding="utf-8"))
@@ -145,7 +141,6 @@ class Assistant:
         return len(passages)
 
     async def rechercher(self, question: str, k: int, candidats: int = 10) -> list[dict]:
-        """Recherche hybride des k passages les plus pertinents pour une question."""
         vecteur = vecteur_sql((await self.embeddings([question]))[0])
         requete = requete_plein_texte(question)
         async with self.pool.acquire() as con:
@@ -193,5 +188,4 @@ class Assistant:
 
 
 def _sse(evenement: str, donnees) -> str:
-    """Met en forme un événement Server-Sent Events."""
     return f"event: {evenement}\ndata: {json.dumps(donnees, ensure_ascii=False)}\n\n"

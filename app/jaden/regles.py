@@ -94,7 +94,6 @@ class MoteurRegles:
         self.pool, self.mqtt, self.meteo, self.diffuseur, self.c = pool, mqtt, meteo, diffuseur, c
 
     async def evaluer_tout(self, maintenant: datetime | None = None) -> list[tuple[int, Decision]]:
-        """Évalue toutes les règles actives et renvoie la décision prise pour chacune."""
         maintenant = maintenant or datetime.now(timezone.utc)
         async with self.pool.acquire() as con:
             regles = await con.fetch(SQL_REGLES, maintenant, self.c.regles_fenetre_s)
@@ -107,7 +106,6 @@ class MoteurRegles:
         return resultats
 
     async def evaluer(self, r, maintenant: datetime) -> Decision:
-        """Évalue une règle, déclenche l'arrosage si nécessaire et journalise la décision."""
         if r["equipement_id"] is None:
             return Decision(False, "sans_vanne")
         params = ParametresRegle(float(r["seuil_humidite"]), float(r["pluie_max_mm"]), r["horizon_h"],

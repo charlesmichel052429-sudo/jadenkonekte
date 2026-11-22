@@ -21,7 +21,6 @@ class ReseauIndisponible(RuntimeError):
 
 
 def active() -> bool:
-    """Vrai si l'adresse du serveur central est configurée."""
     return bool(config().reseau_central_url)
 
 

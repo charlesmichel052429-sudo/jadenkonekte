@@ -1,4 +1,4 @@
-/* Jaden Konekté — identité : sol volcanique, feuillage, eau d'arrosage, soleil des Antilles */
+/* Couleurs : sol volcanique, feuillage, eau, soleil */
 :root {
   --foret: #16382a;
   --foret-2: #1f4a37;
@@ -46,7 +46,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 :focus-visible { outline: 3px solid var(--soleil); outline-offset: 2px; }
 .chargement-page { padding: 3rem; text-align: center; color: var(--texte-doux); }
 
-/* ------------------------------------------------------------------ coquille */
+/* Coquille */
 .coquille { display: grid; grid-template-columns: 252px 1fr; min-height: 100vh; }
 .barre-laterale {
   position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 1.5rem;
@@ -73,7 +73,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .nav-sortie { grid-column: 1 / -1; font-size: .9rem; opacity: .85; }
 .principal { padding: 2rem clamp(1rem, 3vw, 2.6rem) 4rem; max-width: 1320px; width: 100%; outline: none; }
 
-/* ------------------------------------------------------------------ éléments communs */
+/* Éléments communs */
 .entete-page { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; justify-content: space-between; margin-bottom: 1.4rem; }
 .sous-titre { color: var(--texte-doux); margin-top: .35rem; }
 .actions-entete { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
@@ -121,7 +121,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
         background: var(--papier); border: 1px dashed var(--trait); border-radius: var(--rayon); }
 .vide p { max-width: 46ch; color: var(--texte-doux); }
 
-/* ------------------------------------------------------------------ formulaires */
+/* Formulaires */
 .formulaire { display: grid; gap: .9rem; }
 .ligne-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .9rem; }
 .champ { display: grid; gap: .3rem; font-weight: 600; font-size: .88rem; }
@@ -145,7 +145,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .interrupteur input:checked::after { transform: translateX(16px); }
 .interrupteur input:disabled, select:disabled { opacity: .45; cursor: not-allowed; }
 
-/* ------------------------------------------------------------------ connexion */
+/* Connexion */
 .page-connexion { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100vh; }
 .panneau-marque {
   position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;
@@ -170,7 +170,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .bascule { margin-top: 1.3rem; text-align: center; color: var(--texte-doux); }
 .bascule a { font-weight: 700; }
 
-/* ------------------------------------------------------------------ tableau de bord */
+/* Tableau de bord */
 .grille-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.8rem; }
 .kpi { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: .9rem; align-items: center;
        padding: 1rem 1.2rem; border-radius: var(--rayon); background: var(--papier); border: 1px solid var(--trait); box-shadow: var(--ombre); }
@@ -209,7 +209,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .mini-mesure.vanne-ouverte { background: var(--eau-clair); color: #155f8b; }
 .maj { font-size: .8rem; }
 
-/* ------------------------------------------------------------------ page parcelle */
+/* Page parcelle */
 .grille-capteurs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.2rem; }
 .carte-capteur { display: grid; gap: .5rem; align-content: start; padding: 1.05rem 1.1rem; }
 .carte-capteur header { display: flex; align-items: center; gap: .55rem; }
@@ -280,7 +280,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .barre small { font-size: .62rem; color: var(--texte-doux); text-align: center; }
 .petit { font-size: .78rem; margin-top: .6rem; }
 
-/* ------------------------------------------------------------------ assistant */
+/* Assistant */
 .panneau-assistant { display: grid; grid-template-rows: 1fr auto; padding: 0; min-height: calc(100vh - 13rem); overflow: hidden; }
 .fil-discussion { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; max-height: calc(100vh - 19rem); }
 .accueil-assistant { color: var(--texte-doux); display: grid; gap: .9rem; max-width: 62ch; }
@@ -314,12 +314,12 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .saisie-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: space-between; align-items: center; }
 .saisie-actions select { flex: 1 1 12rem; width: auto; min-width: 0; max-width: 100%; min-height: 40px; text-overflow: ellipsis; }
 
-/* ------------------------------------------------------------------ réseau régional */
+/* Réseau régional */
 .panneau-reseau { margin-top: 2rem; }
 .panneau-reseau .graphique-entete { justify-content: flex-start; margin-bottom: .9rem; }
 .panneau-reseau .graphique-entete .btn { margin-left: auto; }
 
-/* ------------------------------------------------------------------ diagnostic */
+/* Diagnostic */
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .depot-photo { display: grid; gap: .9rem; }
 .zone-depot { display: block; cursor: pointer; border: 2px dashed #cfd9c9; border-radius: 14px; background: var(--sable); transition: border-color .15s; }
@@ -336,7 +336,7 @@ code { font: 500 .82em/1 ui-monospace, "Cascadia Code", Consolas, monospace; bac
 .alternative { display: flex; justify-content: space-between; gap: .6rem; padding: .35rem 0; border-bottom: 1px solid var(--trait); font-size: .9rem; }
 .limites p { font-size: .88rem; }
 
-/* ------------------------------------------------------------------ exploitations / tableaux */
+/* Exploitations / tableaux */
 .creation, .liste-exploitations > * + * { margin-top: 1.1rem; }
 .liste-exploitations { margin-top: 1.1rem; }
 details > summary { cursor: pointer; display: flex; align-items: center; gap: .5rem; font-weight: 700; color: var(--feuille); list-style: none; }
@@ -355,7 +355,7 @@ details[open] > summary { margin-bottom: 1rem; }
 .cellule-actions { text-align: right; }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: 1rem; }
 
-/* ------------------------------------------------------------------ notifications */
+/* Notifications */
 #toasts { position: fixed; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; z-index: 50; max-width: min(380px, calc(100vw - 2rem)); }
 .toast { padding: .75rem 1rem; border-radius: 12px; background: var(--foret); color: #fff; font-weight: 600; font-size: .9rem;
          box-shadow: 0 10px 30px rgba(0,0,0,.2); animation: entree .25s ease-out; transition: opacity .4s, transform .4s; }
@@ -369,7 +369,7 @@ details[open] > summary { margin-bottom: 1rem; }
 @keyframes entree { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
-/* ------------------------------------------------------------------ responsive */
+/* Responsive */
 @media (max-width: 1180px) {
   .grille-capteurs { grid-template-columns: repeat(2, 1fr); }
   .detail-grille { grid-template-columns: 1fr; }

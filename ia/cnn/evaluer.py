@@ -1,9 +1,10 @@
 """Évaluation du modèle EXPORTÉ (ONNX) avec le prétraitement du service de diagnostic.
 
 On mesure la chaîne réellement utilisée en production (service-ia), et non le modèle PyTorch :
-une différence de prétraitement ou d'export se verrait ici. Deux jeux d'images :
+une différence de prétraitement ou d'export se verrait ici. Trois jeux d'images :
   * PlantVillage (validation) : photos de laboratoire, fond uni ;
-  * PlantDoc (test) : photos réelles prises au champ, jamais vues à l'entraînement.
+  * PlantDoc (test) : photos réelles collectées sur internet, jamais vues à l'entraînement ;
+  * Mendeley (test) : photos prises au champ au Pakistan et au Bangladesh, jamais vues à l'entraînement.
 
     python evaluer.py --modele tomate_mobilenetv3.onnx > evaluation.md
     python evaluer.py --modele nouveau.onnx --ancien tomate_mobilenetv3.onnx   # comparaison
@@ -21,7 +22,8 @@ from ia_service.classifieur import softmax  # noqa: E402
 from ia_service.images import charger, pretraiter  # noqa: E402
 
 JEUX = {"PlantVillage — validation (laboratoire)": "donnees/val",
-        "PlantDoc — test (photos réelles)": "donnees_terrain/test"}
+        "PlantDoc — test (photos réelles)": "donnees_terrain/test",
+        "Mendeley — test (photos réelles prises au champ)": "donnees_mendeley/test"}
 SEUIL = 0.7
 
 

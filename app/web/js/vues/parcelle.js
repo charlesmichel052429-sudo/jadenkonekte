@@ -20,7 +20,7 @@ const MOTIFS = {
 };
 const MOTIFS_INVALIDES = { hors_bornes: "hors des bornes plausibles", saut: "saut brutal", unite: "unité incorrecte" };
 
-// ------------------------------------------------------------------ cartes capteurs
+// Cartes capteurs
 function carteCapteur(c) {
   const g = GRANDEURS[c.grandeur];
   const refs = {
@@ -84,7 +84,7 @@ function carteCapteur(c) {
   };
 }
 
-// ------------------------------------------------------------------ vanne
+// Vanne
 function panneauVanne(equipement) {
   if (!equipement) return { noeud: el("section", { class: "carte" }, el("p", { class: "muted" }, "Aucune vanne déclarée.")), maj() {} };
   let eq = { ...equipement };
@@ -179,7 +179,7 @@ function panneauVanne(equipement) {
   };
 }
 
-// ------------------------------------------------------------------ météo
+// Météo
 function panneauMeteo(parcelleId) {
   const corps = el("div", {}, el("p", { class: "muted" }, "Chargement des prévisions…"));
   const noeud = el("section", { class: "carte panneau-meteo" },
@@ -212,7 +212,7 @@ function panneauMeteo(parcelleId) {
   return { noeud, arreter: () => clearInterval(minuterie) };
 }
 
-// ------------------------------------------------------------------ règles
+// Règles
 function formulaireRegle(regle, surEnregistrer, surAnnuler) {
   const r = regle || { nom: "Arrosage automatique", seuil_humidite: 25, pluie_max_mm: 2, horizon_h: 6, duree_s: 600, delai_min_s: 3600, active: true };
   const num = (libelle, nom, valeur, attrs, aide) => el("label", { class: "champ" }, el("span", {}, libelle),
@@ -323,7 +323,7 @@ function panneauRegles(parcelleId) {
   return { noeud, recharger: charger };
 }
 
-// ------------------------------------------------------------------ vue
+// Vue
 export default async function vueParcelle(racine, [id]) {
   const pid = Number(id);
   const [parcelle, capteurs, equipements] = await Promise.all([

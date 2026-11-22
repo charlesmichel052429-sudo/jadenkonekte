@@ -42,7 +42,7 @@ def modele_de_test(dossier, n_classes=10):
     (dossier / "classes_fr.json").write_text(json.dumps({"Tomato___classe_0": "Mildiou (test)"}, ensure_ascii=False))
 
 
-# ------------------------------------------------------------------ validation
+# Validation
 @pytest.mark.parametrize("donnees, status", [
     (b"pas une image", 415),
     (b"GIF89a" + b"\0" * 100, 415),                          # GIF : refusé
@@ -68,7 +68,7 @@ def test_pretraitement_identique_a_la_validation_torchvision():
     assert np.allclose(x[0, :, 112, 112], attendu, atol=0.02)
 
 
-# ------------------------------------------------------------------ modèle
+# Modèle
 def test_modele_absent(tmp_path):
     c = Classifieur(tmp_path)
     assert c.pret is False
@@ -106,7 +106,7 @@ def test_classes_incoherentes_refusees(tmp_path):
     assert Classifieur(tmp_path).pret is False
 
 
-# ------------------------------------------------------------------ service HTTP
+# Service HTTP
 def test_service_http(tmp_path):
     from fastapi.testclient import TestClient
     from ia_service import service

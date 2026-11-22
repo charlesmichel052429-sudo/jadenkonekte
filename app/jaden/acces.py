@@ -20,7 +20,6 @@ def clause_membre(colonne: str, p_admin: int = 2, p_utilisateur: int = 3) -> str
 
 
 async def connexion(request: Request) -> AsyncIterator[asyncpg.Connection]:
-    """Dépendance FastAPI : une connexion du pool pour la durée de la requête."""
     async with request.app.state.pool.acquire() as con:
         yield con
 
@@ -37,7 +36,6 @@ async def _une(con, sql: str, ident, u: UtilisateurCourant, libelle: str):
 
 
 async def exploitation(con, u, exploitation_id: int):
-    """Exploitation accessible à l'utilisateur."""
     return await _une(con, f"SELECT e.* FROM exploitation e WHERE e.id = $1 AND {clause_membre('e.id')}",
                       exploitation_id, u, "Exploitation")
 
@@ -50,7 +48,6 @@ async def parcelle(con, u, parcelle_id: int):
 
 
 async def capteur(con, u, capteur_id: int):
-    """Capteur accessible à l'utilisateur."""
     return await _une(con, "SELECT c.* FROM capteur c JOIN parcelle p ON p.id = c.parcelle "
                            f"WHERE c.id = $1 AND {clause_membre('p.exploitation')}", capteur_id, u, "Capteur")
 
@@ -63,13 +60,11 @@ async def equipement(con, u, equipement_id: int):
 
 
 async def regle(con, u, regle_id: int):
-    """Règle d'arrosage accessible à l'utilisateur."""
     return await _une(con, "SELECT r.* FROM regle r JOIN parcelle p ON p.id = r.parcelle "
                            f"WHERE r.id = $1 AND {clause_membre('p.exploitation')}", regle_id, u, "Règle")
 
 
 async def commande(con, u, commande_id: str):
-    """Commande de vanne accessible à l'utilisateur."""
     return await _une(con, "SELECT c.* FROM commande c JOIN equipement q ON q.id = c.equipement "
                            "JOIN parcelle p ON p.id = q.parcelle "
                            f"WHERE c.id = $1 AND {clause_membre('p.exploitation')}", commande_id, u, "Commande")

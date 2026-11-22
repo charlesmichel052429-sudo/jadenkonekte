@@ -94,8 +94,9 @@ depuis l'interface.
 
 ### Diagnostic des feuilles
 
-MobileNetV3-Small entraîné sur PlantVillage (`ia/cnn/entrainement.py`), exporté en ONNX. En dessous de
-0,7 de confiance, le résultat est présenté comme incertain. Résultats : `ia/cnn/evaluation.md`.
+MobileNetV3-Large entraîné sur PlantVillage et sur des photos prises au champ (PlantDoc, Mendeley Data),
+exporté en ONNX (`ia/cnn/README.md`). En dessous de 0,7 de confiance, le résultat est présenté comme incertain.
+Résultats : `ia/cnn/evaluation.md`.
 
 ### Assistant agronome
 

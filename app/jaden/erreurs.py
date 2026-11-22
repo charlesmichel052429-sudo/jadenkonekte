@@ -42,14 +42,12 @@ class Probleme(Exception):
 
 
 def reponse(request: Request, status: int, detail: str = "", entetes: dict | None = None, **extensions):
-    """Construit la réponse problem+json correspondant à un code HTTP."""
     corps = {"type": "about:blank", "title": TITRES.get(status, "Erreur"), "status": status,
              "detail": detail, "instance": request.url.path, **extensions}
     return JSONResponse(corps, status_code=status, headers=entetes, media_type="application/problem+json")
 
 
 def message_validation(erreur: dict) -> str:
-    """Traduit en français un message de validation Pydantic."""
     if erreur["type"] == "value_error":
         return str(erreur.get("msg", "")).removeprefix("Value error, ")
     modele = MESSAGES.get(erreur["type"])
@@ -62,7 +60,6 @@ def message_validation(erreur: dict) -> str:
 
 
 def installer(app: FastAPI) -> None:
-    """Enregistre les gestionnaires d'erreurs de l'application."""
 
     @app.exception_handler(Probleme)
     async def _probleme(request: Request, exc: Probleme):

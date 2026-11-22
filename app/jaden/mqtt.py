@@ -33,7 +33,6 @@ class ClientMqtt:
         self.boucle: asyncio.AbstractEventLoop | None = None
 
     def demarrer(self, recevoir: bool) -> None:
-        """Se connecte en arrière-plan ; si `recevoir`, les messages sont placés dans self.file."""
         if recevoir:
             self.boucle = asyncio.get_running_loop()
             self.file = asyncio.Queue(maxsize=10000)
@@ -41,7 +40,6 @@ class ClientMqtt:
         self.client.loop_start()
 
     def arreter(self) -> None:
-        """Ferme proprement la connexion au broker."""
         self.client.loop_stop()
         self.client.disconnect()
 

@@ -79,7 +79,7 @@ def test_changement_de_niveau_confirme_par_deux_mesures():
     assert juger(lire_(msg(valeur=80.0)), HUMIDITE, valide_avant, 1800, premiere).motif == "saut"
 
 
-# ------------------------------------------------------------------ détection d'anomalies (z-score)
+# Détection d'anomalies (z-score)
 def test_zscore():
     from jaden.validation import zscore
     stable = [30.0 + 0.3 * ((i % 5) - 2) for i in range(40)]          # humidité stable, bruit ±0,6

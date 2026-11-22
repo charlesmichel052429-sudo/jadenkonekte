@@ -44,12 +44,10 @@ HASH_FACTICE = hacher("mot-de-passe-factice")
 
 
 def _b64(donnees: bytes) -> str:
-    """Encode en base64url sans remplissage (format JWT)."""
     return base64.urlsafe_b64encode(donnees).rstrip(b"=").decode()
 
 
 def _de_b64(texte: str) -> bytes:
-    """Décode du base64url sans remplissage."""
     return base64.urlsafe_b64decode(texte + "=" * (-len(texte) % 4))
 
 
@@ -122,7 +120,6 @@ async def utilisateur_courant(request: Request) -> UtilisateurCourant:
 
 
 async def administrateur(u: Annotated[UtilisateurCourant, Depends(utilisateur_courant)]) -> UtilisateurCourant:
-    """Dépendance FastAPI : réservée au rôle administrateur."""
     if not u.admin:
         raise Probleme(403, "Réservé aux administrateurs")
     return u

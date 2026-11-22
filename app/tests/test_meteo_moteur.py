@@ -84,7 +84,7 @@ def test_reponse_invalide_traitee_comme_indisponible():
     avec_meteo(scenario)
 
 
-# ------------------------------------------------------------------ moteur de règles
+# Moteur de règles
 class FausseMeteo:
     def __init__(self, pluie=0.0, panne=False):
         self.pluie, self.panne = pluie, panne

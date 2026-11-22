@@ -38,7 +38,6 @@ DEMO = {"code": "expl-1", "nom": "Exploitation de démonstration (simulateur)", 
 
 
 async def amorcer(pool, c) -> None:
-    """Crée le compte administrateur et l'exploitation de démonstration s'ils n'existent pas."""
     if not (c.admin_courriel and c.admin_mot_de_passe):
         return
     async with pool.acquire() as con, con.transaction():
@@ -65,7 +64,6 @@ async def amorcer(pool, c) -> None:
 
 
 async def indexer_fiches(assistant_rag: Assistant) -> None:
-    """Indexe les fiches techniques, en réessayant tant que le service d'inférence n'est pas prêt."""
     while True:
         try:
             await assistant_rag.indexer()
@@ -77,7 +75,6 @@ async def indexer_fiches(assistant_rag: Assistant) -> None:
 
 @asynccontextmanager
 async def cycle_de_vie(app: FastAPI):
-    """Ouvre les ressources au démarrage, lance les tâches de fond et libère tout à l'arrêt."""
     logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)-7s %(name)s : %(message)s")
     c = config()
     if len(c.jwt_secret) < 32:

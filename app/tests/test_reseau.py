@@ -31,7 +31,7 @@ def webhook(client, alerte: dict, signature=None, entete_id=None):
         "X-Jaden-Alerte": entete_id or alerte["id"]})
 
 
-# ------------------------------------------------------------------ réception (webhook)
+# Réception (webhook)
 def test_webhook_signe_enregistre_une_seule_fois(client, alice):
     a = alerte_du_reseau()
     assert webhook(client, a).status_code == 204
@@ -64,7 +64,7 @@ def test_webhook_corps_signe_mais_incoherent(client):
     est_probleme(webhook(client, alerte_du_reseau(), entete_id="alt_autre"), 422)
 
 
-# ------------------------------------------------------------------ inscription et publication
+# Inscription et publication
 class CentralSimule:
     def __init__(self):
         self.requetes, self.en_panne = [], False

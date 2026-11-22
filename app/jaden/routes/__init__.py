@@ -12,11 +12,9 @@ class Pagination:
 
     @property
     def decalage(self) -> int:
-        """Nombre de lignes à sauter pour atteindre la page demandée."""
         return (self.page - 1) * self.taille
 
     def enveloppe(self, elements: list, total: int) -> dict:
-        """Réponse paginée : éléments de la page et informations de pagination."""
         return {"elements": elements, "total": total, "page": self.page, "taille": self.taille}
 
 

@@ -73,7 +73,7 @@ function carteGraphique(titre, iconeNom, description) {
   return { carte, canvas, leg, note };
 }
 
-// ------------------------------------------------------------------ courbes 24 h, une par parcelle
+// Courbes 24 h, une par parcelle
 function courbes24h(titre, iconeNom, grandeur, unite, decimales, seuil) {
   const c = carteGraphique(titre, iconeNom, `${titre}, une courbe par parcelle`);
   const graphique = new window.Chart(c.canvas, { type: "line", data: { datasets: [] }, options: options() });
@@ -116,7 +116,7 @@ function courbes24h(titre, iconeNom, grandeur, unite, decimales, seuil) {
   return { carte: c.carte, maj, detruire: () => graphique.destroy() };
 }
 
-// ------------------------------------------------------------------ arrosages des 7 derniers jours
+// Arrosages des 7 derniers jours
 function arrosages7j() {
   const c = carteGraphique("Arrosages des 7 derniers jours", "vanne", "Nombre d'arrosages par jour, automatiques et manuels");
   const graphique = new window.Chart(c.canvas, { type: "bar", data: { labels: [], datasets: [] }, options: options({ empile: true, axeTemps: false }) });
@@ -150,7 +150,7 @@ function arrosages7j() {
   return { carte: c.carte, maj, detruire: () => graphique.destroy() };
 }
 
-// ------------------------------------------------------------------ maladies détectées
+// Maladies détectées
 function maladies() {
   const c = carteGraphique("Diagnostics des feuilles", "feuille", "Nombre de diagnostics par résultat");
   const graphique = new window.Chart(c.canvas, { type: "bar", data: { labels: [], datasets: [] },
@@ -181,7 +181,7 @@ function maladies() {
   return { carte: c.carte, maj, detruire: () => graphique.destroy() };
 }
 
-// ------------------------------------------------------------------ assemblage
+// Assemblage
 export function panneauGraphiques() {
   const humidite = courbes24h("Humidité du sol sur 24 h", "goutte", "humidite", "%", 1, SEUIL_VIGILANCE);
   const temperature = courbes24h("Température de l'air sur 24 h", "thermo", "temperature", "°C", 1, null);

@@ -25,13 +25,11 @@ SELECT = "SELECT d.*, a.id AS alerte_id, a.statut AS alerte_statut FROM diagnost
 
 @lru_cache
 def libelles() -> dict[str, str]:
-    """Noms français des classes du modèle (fichier classes_fr.json)."""
     chemin = Path("/app/classes_fr.json")
     return json.loads(chemin.read_text(encoding="utf-8")) if chemin.exists() else {}
 
 
 def _sortie(r) -> dict:
-    """Représentation JSON d'un diagnostic."""
     seuil = config().diagnostic_seuil_fiable
     return {"id": r["id"], "parcelle_id": r["parcelle"], "auteur_id": r["auteur"], "statut": r["statut"],
             "classe": r["classe"], "libelle": libelles().get(r["classe"], r["classe"]) if r["classe"] else None,
@@ -49,7 +47,6 @@ def _clause_acces(p_admin: int = 2, p_utilisateur: int = 3) -> str:
 
 
 async def _lire(con, u, diagnostic_id: int):
-    """Diagnostic accessible à l'utilisateur, sinon 404."""
     r = await con.fetchrow(f"{SELECT} WHERE d.id = $1 AND {_clause_acces()}", diagnostic_id, u.admin, u.id)
     if r is None:
         raise Probleme(404, f"Diagnostic {diagnostic_id} introuvable")
@@ -88,7 +85,6 @@ async def creer_diagnostic(request: Request, response: Response, u: Utilisateur,
     await con.execute("UPDATE diagnostic SET image_chemin = $2 WHERE id = $1", diagnostic_id, str(chemin))
 
     async def echec(status: int, detail: str):
-        """Marque le diagnostic en échec et renvoie l'erreur au client."""
         await con.execute("UPDATE diagnostic SET statut = 'echec', termine_le = now() WHERE id = $1", diagnostic_id)
         raise Probleme(status, detail, {"Retry-After": "30"} if status == 503 else None)
 
